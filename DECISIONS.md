@@ -150,3 +150,19 @@ Running log of choices made and why. Newest at the bottom.
 - Usage numbers reported from `query_logs` only, never estimated or rounded up.
 - The headline metric is extraction and answer accuracy against a hand-labeled
   eval set, not user count.
+
+## Parsing
+
+- **Subject pages are inconsistent about `<strong>` title wrappers.** CPSC and
+  DSCI wrap course titles in `<strong>`; ENGL, MATH, PHYS, STAT do not. An
+  initial parser that extracted `<strong>` and anchored the heading regex at `$`
+  silently dropped 190 of 718 articles (ENGL lost two-thirds). Fixed by matching
+  the code/credits prefix and treating the remainder as the title.
+- **The anomaly counters caught this, not inspection.** Silent-skip parsing would
+  have produced a plausible-looking 528-course database with no signal that a
+  quarter of the corpus was missing. Every skip path increments a named counter.
+- **Contact-hours markers (`[3-2-0]`) are absent from 63% of courses**, mostly
+  humanities and seminars. The fallback split at the first `Prerequisite:` /
+  `Corequisite:` keyword handles these; verified no requirement text leaks into
+  `description`.
+- **Credits may be ranges** (e.g. `(3-6)`); the lower bound is stored.
