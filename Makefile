@@ -1,4 +1,4 @@
-.PHONY: up down reset logs shell psql test lint
+.PHONY: up down reset logs shell psql test lint fetch
 
 up:            ## start the stack (foreground)
 	docker compose up --build
@@ -23,3 +23,6 @@ test:          ## run pytest inside the container
 
 lint:          ## run ruff
 	docker compose exec app ruff check .
+
+fetch:         ## fetch subject index pages into raw_pages
+	docker compose exec app python -m ingest.fetch
