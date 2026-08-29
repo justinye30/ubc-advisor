@@ -54,3 +54,10 @@ Running log of choices made and why. Newest at the bottom.
 - **Dependencies pinned via `pip freeze`.** Initial pins targeted Python 3.12 and
   `lxml` had no 3.14 wheel, forcing a source build that failed on missing libxml2
   headers. Loosened, resolved, re-pinned.
+
+## Normalization Rules
+- Strip _V; map _O to out-of-scope
+- Single space between subject and number: CPSC221, CPSC  221, cpsc 221 → CPSC 221
+- Uppercase the subject
+- Preserve letter suffixes where they exist (some courses are MATH 100A), so don't cast the number to an integer
+- Trim whitespace and strip trailing punctuation — prereq text ends sentences with periods, and CPSC 210. shouldn't become a distinct code
