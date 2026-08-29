@@ -1,8 +1,6 @@
-# Secrets
 .env
 *.pem
 
-# Python
 __pycache__/
 *.py[cod]
 .venv/
@@ -10,17 +8,14 @@ venv/
 .pytest_cache/
 .ruff_cache/
 
-# Data
 data/
 *.sqlite
 *.dump
 
-# Node
 node_modules/
 dist/
 .vite/
 
-# Editor / OS
 .vscode/*
 !.vscode/settings.json
 !.vscode/extensions.json

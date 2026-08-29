@@ -1,4 +1,3 @@
--- Enable pgvector. Required before any vector-typed column can be declared.
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- Smoke test only. Replaced by the real schema in 002.
