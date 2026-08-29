@@ -55,9 +55,65 @@ Running log of choices made and why. Newest at the bottom.
   `lxml` had no 3.14 wheel, forcing a source build that failed on missing libxml2
   headers. Loosened, resolved, re-pinned.
 
-## Normalization Rules
-- Strip _V; map _O to out-of-scope
-- Single space between subject and number: CPSC221, CPSC  221, cpsc 221 → CPSC 221
-- Uppercase the subject
-- Preserve letter suffixes where they exist (some courses are MATH 100A), so don't cast the number to an integer
-- Trim whitespace and strip trailing punctuation — prereq text ends sentences with periods, and CPSC 210. shouldn't become a distinct code
+## Course code normalization
+
+- **Canonical form is `CPSC 221`** — subject, single space, number. This is what
+  students type, which matters for query-time entity extraction.
+- **`_V` is stripped; `_O` marks out-of-scope.** The suffixes disambiguate campus,
+  and real prerequisite text mixes them in one clause (e.g. "one of CPSC_V 121,
+  MATH_V 220, MATH_O 220"). Naive stripping would collapse `MATH_V 220` and
+  `MATH_O 220` into the same code and silently merge two distinct options.
+  Okanagan codes become `OUT_OF_SCOPE` nodes in the tree, which resolve to
+  INDETERMINATE rather than being dropped.
+- **One normalization function** in `core/codes.py`, called by the course parser,
+  the extraction validator, and query-time entity extraction alike. Never
+  normalized ad hoc at a call site — divergent forms would produce duplicate rows
+  and orphaned graph edges.
+- **Enforced at the database boundary** by a CHECK constraint on `courses.code`
+  (`^[A-Z]{2,5} [0-9]{3}[A-Z]?$`). Even if a code path forgets to normalize,
+  the insert fails loudly instead of corrupting the graph. Trailing `[A-Z]?`
+  handles courses like MATH 100A.
+
+## Schema
+
+- **Verbatim source text is stored alongside every extraction.** `prereq_text` is
+  never modified. It is the ground truth for auditing extraction accuracy, it
+  lets us reprocess without re-scraping, and it is shown to the user next to any
+  verdict.
+
+- **`raw_pages` caches every fetch before parsing.** Parsing logic will be
+  iterated on many times; the pages should be fetched once. `content_sha256`
+  gives change detection when the calendar updates.
+
+- **`prereq_edges` is derived, not authoritative.** It duplicates information
+  already in `prereq_tree` — deliberate denormalization, because trees answer
+  "is this student eligible" while a flat edge table answers "what unlocks if I
+  take 213." Regenerated from the tree after extraction; never hand-edited.
+  `is_optional` marks edges under a `ONE_OF`, without which a graph view would
+  wrongly imply every listed course is required.
+
+- **No foreign key on `prereq_edges.requires_code`.** Prerequisites legitimately
+  reference courses outside scope (Okanagan, unscraped subjects). A FK would
+  reject those rows; we want the edge recorded as an INDETERMINATE signal.
+
+- **`credits` is `NUMERIC`, not integer or float.** Some courses are 1.5 credits.
+  Float is wrong for values that get summed and compared against thresholds in
+  `MIN_CREDITS` evaluation.
+
+- **`extraction_status` is a state machine** (`pending` → `no_prereq` / `parsed` /
+  `flagged` → `human_verified`). `no_prereq` is distinct from `pending` so
+  coverage metrics can tell "genuinely has none" from "not processed yet."
+
+- **`policy_chunks.embedding` is `vector(1536)`.** Dimension must match the
+  embedding model exactly and cannot be reinterpreted — changing models requires
+  recreating the column. Model choice is deferred to Week 2; revisit this line
+  when it is made.
+
+- **HNSW index deferred.** Building a vector index on an empty table is
+  pointless and pgvector builds more efficiently over existing data. Add as
+  `003_vector_index.sql` once chunks are populated.
+
+- **`query_logs` exists from day one.** Usage metrics cannot be backfilled, and
+  "answered N queries for M students" is only claimable if logging predates
+  launch. Question text is logged; transcripts and identifying data are not.
+  Retention policy: TBD before any public launch, and disclosed in the README.
