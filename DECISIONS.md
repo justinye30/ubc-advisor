@@ -117,3 +117,36 @@ Running log of choices made and why. Newest at the bottom.
   "answered N queries for M students" is only claimable if logging predates
   launch. Question text is logged; transcripts and identifying data are not.
   Retention policy: TBD before any public launch, and disclosed in the README.
+
+## Terms of Use (read 2026-08-29)
+
+- **Clause (f), load:** 9 index requests at the robots.txt-specified 10s delay
+  is not an "unreasonable or disproportionately large load." Fetching is fine.
+- **Clause (a), redistribution:** grants a limited license for personal,
+  non-commercial, unmodified use of short extracts. Reproducing, republishing,
+  or re-disseminating requires prior written consent. A public tool serving
+  parsed course data to other students falls outside this.
+- **Decision:** built for personal use. Written consent requested from
+  [department] on [date]; public launch deferred pending a response.
+- **Scraped HTML is never committed** to the repo. Test fixtures use
+  hand-written excerpts, not page dumps.
+
+## Fetch strategy
+
+- **Subject index pages only** (~9 requests). At the robots.txt-mandated 10s
+  delay, individual course pages would be ~83 minutes per refresh vs ~90 seconds.
+  Verified 2026-08-29 that index pages carry full untruncated prerequisite text,
+  including the long CPSC 330 clause.
+- **Citation URLs are constructed, never fetched.**
+  `CPSC 221` -> `/course-descriptions/courses/cpscv-221`. Pattern verified
+  against CPSC, MATH, and STAT.
+- **`raw_pages.url` (index page fetched) and `courses.source_url` (per-course
+  citation) are intentionally different values.** Not an inconsistency.
+- **Golden set exception:** ~40 individual course pages fetched once to confirm
+  index pages match individual pages.
+
+## Metrics and honesty
+
+- Usage numbers reported from `query_logs` only, never estimated or rounded up.
+- The headline metric is extraction and answer accuracy against a hand-labeled
+  eval set, not user count.

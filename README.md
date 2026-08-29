@@ -9,7 +9,9 @@ Academic Calendar with a citation to the exact source paragraph.
 
 ## Status
 
-In development. Currently: environment scaffold and schema.
+In development. Built for personal use — UBC's Terms of Use require written
+consent to redistribute calendar content. See
+[DECISIONS.md](DECISIONS.md).
 
 ## Stack
 
