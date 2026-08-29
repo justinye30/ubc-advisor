@@ -1,4 +1,4 @@
-.PHONY: up down reset logs shell psql test lint fetch
+.PHONY: up down reset logs shell psql test lint fetch parse
 
 up:            ## start the stack (foreground)
 	docker compose up --build
@@ -26,3 +26,6 @@ lint:          ## run ruff
 
 fetch:         ## fetch subject index pages into raw_pages
 	docker compose exec app python -m ingest.fetch
+
+parse:         ## parse cached pages into courses
+	docker compose exec app python -m ingest.parse_courses
