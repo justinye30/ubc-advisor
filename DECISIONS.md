@@ -166,3 +166,13 @@ Running log of choices made and why. Newest at the bottom.
   `Corequisite:` keyword handles these; verified no requirement text leaks into
   `description`.
 - **Credits may be ranges** (e.g. `(3-6)`); the lower bound is stored.
+
+- **Grading-policy sentences are stripped in the parser, not the prompt.**
+  74 of 313 courses appended "This course is not eligible for Credit/D/Fail
+  grading" or a credit-exclusion note to their prerequisite. Deterministic
+  removal is more reliable than instructing the model to ignore it, and saves
+  tokens on every re-run.
+- **Two courses (CPSC 320, STAT 200) reference the Faculty of Science credit
+  exclusion list via a URL that UBC truncates in its own HTML.** These become
+  EXTERNAL_LIST nodes resolving to INDETERMINATE. The full URL was reconstructed
+  by hand.

@@ -54,6 +54,13 @@ COREQ_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 
+# Grading-policy sentences that trail prerequisites but aren't requirements.
+POLICY_TAIL_RE = re.compile(
+    r"\s*(?:This course is not eligible for Credit/D/Fail grading|"
+    r"Credit will (?:only be |be )?granted for only one of[^.]*)\.?\s*$",
+    re.IGNORECASE,
+)
+
 
 @dataclass
 class ParsedCourse:
@@ -90,10 +97,17 @@ def split_requirements(body: str) -> tuple[str | None, str | None, str | None]:
     prereq = PREREQ_RE.search(tail)
     coreq = COREQ_RE.search(tail)
 
+    def strip_policy(s: str | None) -> str | None:
+        """Remove trailing grading-policy sentences that aren't requirements."""
+        if s is None:
+            return None
+        cleaned = POLICY_TAIL_RE.sub("", s).strip().rstrip(".")
+        return cleaned or None
+
     return (
         description or None,
-        clean(prereq.group(1)).rstrip(".") or None if prereq else None,
-        clean(coreq.group(1)).rstrip(".") or None if coreq else None,
+        strip_policy(clean(prereq.group(1))) if prereq else None,
+        strip_policy(clean(coreq.group(1))) if coreq else None,
     )
 
 
