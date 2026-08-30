@@ -176,3 +176,15 @@ Running log of choices made and why. Newest at the bottom.
   exclusion list via a URL that UBC truncates in its own HTML.** These become
   EXTERNAL_LIST nodes resolving to INDETERMINATE. The full URL was reconstructed
   by hand.
+
+- **Extraction is not deterministic.** Anthropic SDK v1.0 removed the
+  `temperature` parameter, so identical input can produce slightly different
+  trees across runs. Trees are extracted once and stored; evals measure the
+  stored artifact. Re-extraction requires an explicit `--redo`.
+
+- **Coverage-check false positives are not all UNPARSED.** In several cases the
+  model correctly excluded courses that the calendar marks as *recommended*
+  rather than required (e.g. "MATH 200 (or MATH 217 or MATH 226) is
+  recommended"). The regex check cannot distinguish requirement text from
+  advisory text, so these flag as "codes in text but not tree" despite being
+  correct extractions. Reviewed manually; left flagged as informational.
