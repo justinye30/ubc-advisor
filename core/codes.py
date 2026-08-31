@@ -52,8 +52,16 @@ def try_normalize(raw: str) -> str | None:
 
 
 def is_in_scope(code: str) -> bool:
-    """True if the normalized code's subject is one we ingest."""
-    return code.split()[0] in IN_SCOPE_SUBJECTS
+    """True if the code is a UBC course in an ingested subject.
+
+    Excludes BC secondary school courses (PHYS 12, MATH 12, PREC 12), which
+    share subject prefixes with UBC courses but use two-digit numbers.
+    """
+    parts = code.split()
+    if len(parts) != 2:
+        return False
+    subject, number = parts
+    return subject in IN_SCOPE_SUBJECTS and len(number.rstrip("ABCDEFGH")) == 3
 
 
 def subject_index_url(subject: str) -> str:

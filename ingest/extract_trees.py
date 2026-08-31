@@ -23,8 +23,8 @@ import psycopg
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
-from core.codes import OutOfScope, normalize, try_normalize
-from core.tree import TreeError, course_codes, edges, has_indeterminate, validate
+from core.codes import OutOfScope, is_in_scope, normalize, try_normalize
+from core.tree import TreeError, course_codes, edges, has_indeterminate, validate, walk
 
 load_dotenv()
 
@@ -59,24 +59,27 @@ ALLOWED OPS
 RULES
 1. Normalize codes: strip _V, single space. "CPSC_V 221" -> "CPSC 221".
 2. Codes with _O are Okanagan: emit OUT_OF_SCOPE, never COURSE.
-3. Set "tracked": false on COURSE nodes whose subject is NOT one of
-   CPSC MATH STAT DSCI CPEN PHYS ENGL WRDS SCIE. These are real Vancouver
-   courses outside our data, not errors.
-4. Preserve nesting exactly. Lettered groups "(a) ... (b) ..." under "All of"
+3. Preserve nesting exactly. Lettered groups "(a) ... (b) ..." under "All of"
    are ALL_OF children; each lettered group is usually a ONE_OF.
-5. NEVER invent a course code that does not appear in the source text.
-6. NEVER drop a clause. If a clause does not map cleanly to an op, wrap that
+4. NEVER invent a course code that does not appear in the source text.
+5. NEVER drop a clause. If a clause does not map cleanly to an op, wrap that
    clause verbatim in UNPARSED rather than approximating it.
-7. A bare single requirement is still a valid tree: {"op":"COURSE",...}.
-8. Output JSON only. No prose, no markdown fences.
-9. "N credits from one of [explicit course list]" is a ONE_OF over those
+6. A bare single requirement is still a valid tree: {"op":"COURSE",...}.
+7. Output JSON only. No prose, no markdown fences.
+8. "N credits from one of [explicit course list]" is a ONE_OF over those
    courses, not MIN_CREDITS. Use MIN_CREDITS only when the set is described
    by a pattern (subject and/or level) rather than enumerated.
-10. Some requirements name programs rather than courses (e.g. "Arts One").
+9. Some requirements name programs rather than courses (e.g. "Arts One").
     Emit PROGRAM, not COURSE.
-11. A bare course code, with or without square brackets (e.g. "CPSC 314" or
+10. A bare course code, with or without square brackets (e.g. "CPSC 314" or
     "[CPSC320]"), is a single-course requirement:
     {"op":"COURSE","code":"CPSC 314","tracked":true}
+11. A corequisite appearing as a branch inside a prerequisite (e.g. "or (d)
+    SCIE_V 001 as a corequisite") cannot be verified from a transcript.
+    Emit UNPARSED with the clause verbatim.
+12. BC secondary school courses (PHYS 12, MATH 12, PREC 12, CALC 12, CHEM 11,
+    etc.) are COURSE nodes with "tracked": false. Ignore trailing glossary
+    sentences that expand these abbreviations.
 
 EXAMPLES
 
@@ -140,6 +143,13 @@ def extract(client: Anthropic, text: str) -> dict:
     decoder = json.JSONDecoder()
     tree, _ = decoder.raw_decode(raw)
     return tree
+
+
+def fix_tracked(node: dict) -> None:
+    """tracked is derivable, not a judgment call. Overwrite whatever the model said."""
+    for n in walk(node):
+        if n["op"] == "COURSE":
+            n["tracked"] = is_in_scope(n["code"])
 
 
 def codes_in_text(text: str) -> set[str]:
@@ -240,6 +250,7 @@ def main() -> int:
         for code, text in rows:
             try:
                 tree = extract(client, text)
+                fix_tracked(tree)
                 validate(tree)
             except (json.JSONDecodeError, TreeError) as exc:
                 stats["invalid"] += 1

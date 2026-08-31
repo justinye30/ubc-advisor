@@ -188,3 +188,10 @@ Running log of choices made and why. Newest at the bottom.
   recommended"). The regex check cannot distinguish requirement text from
   advisory text, so these flag as "codes in text but not tree" despite being
   correct extractions. Reviewed manually; left flagged as informational.
+
+- **Corequisites nested inside prerequisite disjunctions become UNPARSED.**
+  Three courses have branches like "or (d) SCIE_V 001 as a corequisite."
+  Concurrent enrolment cannot be verified from a completed-courses transcript,
+  so a dedicated node type would add schema surface without enabling a correct
+  answer. UNPARSED yields INDETERMINATE with the clause quoted, which is honest.
+  
