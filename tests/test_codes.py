@@ -62,3 +62,8 @@ def test_urls():
     assert subject_index_url("CPSC").endswith("/subject/cpscv")
     assert course_url("CPSC 221").endswith("/courses/cpscv-221")
     assert course_url("MATH 100A").endswith("/courses/mathv-100a")
+
+def test_high_school_codes_are_out_of_scope():
+    assert not is_in_scope("PHYS 12")
+    assert not is_in_scope("MATH 12")
+    assert is_in_scope("PHYS 101")

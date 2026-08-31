@@ -145,3 +145,44 @@ def edges(node: dict) -> list[tuple[str, bool]]:
 
     visit(node, False)
     return out
+
+def canonical(node: dict) -> tuple:
+    """A hashable, order-insensitive form of a tree.
+
+    Children of ALL_OF and ONE_OF are sorted, since order carries no meaning.
+    Two trees with the same canonical form are semantically equivalent.
+    """
+    op = node["op"]
+
+    if op in COMBINATORS:
+        return (op, tuple(sorted(canonical(c) for c in node["children"])))
+
+    if op == "COURSE":
+        return (op, node["code"], node.get("tracked", True))
+    if op == "MIN_GRADE":
+        return (op, node["percent"], canonical(node["child"]))
+    if op == "MIN_CREDITS":
+        spec = node.get("from", {})
+        return (
+            op,
+            node["credits"],
+            tuple(sorted(spec.get("subjects", []))),
+            tuple(sorted(spec.get("courses", []))),
+            spec.get("level_min"),
+        )
+    if op == "STANDING":
+        return (op, node["year"])
+    if op == "PROGRAM":
+        return (op, node["name"])
+    if op == "OUT_OF_SCOPE":
+        return (op, node["code"])
+    # PERMISSION, EXTERNAL_LIST, UNPARSED: presence matters, wording doesn't
+    return (op,)
+
+
+def node_type_counts(node: dict) -> dict[str, int]:
+    """How many of each op appear in the tree. For failure breakdowns."""
+    counts: dict[str, int] = {}
+    for n in walk(node):
+        counts[n["op"]] = counts.get(n["op"], 0) + 1
+    return counts

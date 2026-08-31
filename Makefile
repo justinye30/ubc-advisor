@@ -1,4 +1,4 @@
-.PHONY: up down reset logs shell psql test lint fetch parse extract
+.PHONY: up down reset logs shell psql test lint fetch parse extract eval
 
 up:            ## start the stack (foreground)
 	docker compose up --build
@@ -32,3 +32,6 @@ parse:         ## parse cached pages into courses
 
 extract:       ## extract prereq trees (LLM)
 	docker compose exec app python -m ingest.extract_trees
+
+eval:          ## measure extraction accuracy against golden set
+	docker compose exec app python -m eval.run_eval

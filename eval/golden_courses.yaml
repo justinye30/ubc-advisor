@@ -1,0 +1,579 @@
+# Hand-labeled prerequisite trees. Ground truth for extraction accuracy.
+#
+# RULE: written by reading calendar text only, WITHOUT viewing extractor output.
+# Labeled by: Justin Ye
+# Calendar year: 2026/27
+#
+# Use `tree: null` for courses with no prerequisite.
+
+- code: "CPSC 221"
+  text: "One of CPSC_V 210, CPEN_V 221 and either (a) one of CPSC_V 121, MATH_V 220, MATH_O 220 or (b) a score of 68% or higher in MATH_V 226"
+  tree:
+    op: ALL_OF
+    children:
+      - op: ONE_OF
+        children:
+          - {op: COURSE, code: "CPSC 210", tracked: true}
+          - {op: COURSE, code: "CPEN 221", tracked: true}
+      - op: ONE_OF
+        children:
+          - op: ONE_OF
+            children:
+              - {op: COURSE, code: "CPSC 121", tracked: true}
+              - {op: COURSE, code: "MATH 220", tracked: true}
+              - {op: OUT_OF_SCOPE, code: "MATH_O 220", reason: okanagan}
+          - op: MIN_GRADE
+            percent: 68
+            child: {op: COURSE, code: "MATH 226", tracked: true}
+
+- code: "CPSC 213"
+  text: "All of CPSC 121, CPSC 210"
+  tree:
+    op: ALL_OF
+    children:
+      - {op: COURSE, code: "CPSC 121", tracked: true}
+      - {op: COURSE, code: "CPSC 210", tracked: true}
+
+- code: "STAT 305"
+  text: "Either (a) one of STAT_V 200, STAT_V 203, BIOL_V 300, STAT_V 251, COMM_V 291, ECON_V 325, FRST_V 231, PSYC_V 218, PSYC_V 366, PSYO_O 271, STAT_O 121, STAT_O 124, STAT_O 205, STAT_O 230 and one of MATH_V 302, STAT_V 302, STAT_O 203; or (b) DSCI_V 200 and STAT_V 201 and one of MATH_V 302, STAT_V 302, STAT_O 203; or (c) a score of 65% or higher in one of MATH_V 302, STAT_V 302, STAT_O 203. The Department recommends that students meet the prerequisite through option (a) or (b)"
+  tree:
+    op: ONE_OF
+    children:
+      - op: ALL_OF
+        children:
+          - op: ONE_OF
+            children:
+              - {op: COURSE, code: "STAT 200", tracked: true}
+              - {op: COURSE, code: "STAT 203", tracked: true}
+              - {op: COURSE, code: "BIOL 300", tracked: false}
+              - {op: COURSE, code: "STAT 251", tracked: true}
+              - {op: COURSE, code: "COMM 291", tracked: false}
+              - {op: COURSE, code: "ECON 325", tracked: false}
+              - {op: COURSE, code: "FRST 231", tracked: false}
+              - {op: COURSE, code: "PSYC 218", tracked: false}
+              - {op: COURSE, code: "PSYC 366", tracked: false}
+              - {op: OUT_OF_SCOPE, code: "PSYO_O 271", reason: okanagan}
+              - {op: OUT_OF_SCOPE, code: "STAT_O 121", reason: okanagan}
+              - {op: OUT_OF_SCOPE, code: "STAT_O 124", reason: okanagan}
+              - {op: OUT_OF_SCOPE, code: "STAT_O 205", reason: okanagan}
+              - {op: OUT_OF_SCOPE, code: "STAT_O 230", reason: okanagan}
+          - op: ONE_OF
+            children:
+              - {op: COURSE, code: "MATH 302", tracked: true}
+              - {op: COURSE, code: "STAT 302", tracked: true}
+              - {op: OUT_OF_SCOPE, code: "STAT_O 203", reason: okanagan}
+      - op: ALL_OF
+        children:
+          - {op: COURSE, code: "DSCI 200", tracked: true}
+          - {op: COURSE, code: "STAT 201", tracked: true}
+          - op: ONE_OF
+            children:
+              - {op: COURSE, code: "MATH 302", tracked: true}
+              - {op: COURSE, code: "STAT 302", tracked: true}
+              - {op: OUT_OF_SCOPE, code: "STAT_O 203", reason: okanagan}
+      - op: MIN_GRADE
+        percent: 65
+        child:
+          op: ONE_OF
+          children:
+            - {op: COURSE, code: "MATH 302", tracked: true}
+            - {op: COURSE, code: "STAT 302", tracked: true}
+            - {op: OUT_OF_SCOPE, code: "STAT_O 203", reason: okanagan}
+
+- code: "SCIE 420"
+  text: "One of ASIC 200, ASIC 220, APBI 260, APBI 265, ARCL 309, BIOL 230, CHEM 301, CHEM 302, CHEM 341, CIVL 200, CONS 330, ECON 210, ENDS 221, ENVR 200, ENVR 300, EOSC 270, EOSC 340, EOSC 345, FRST 100, GEOG 211, GEOG 310, HIST 106, ISCI 360, ISCI 361, LAW 386, LFS 250, PHYS 333, POLI 351, PSYC 321, PSYC 421, SCIE 120, SCIE 320. Fourth-year standing or permission of the instructor"
+  tree:
+    op: ALL_OF
+    children:
+      - op: ONE_OF
+        children:
+          - {op: COURSE, code: "ASIC 200", tracked: false}
+          - {op: COURSE, code: "ASIC 220", tracked: false}
+          - {op: COURSE, code: "APBI 260", tracked: false}
+          - {op: COURSE, code: "APBI 265", tracked: false}
+          - {op: COURSE, code: "ARCL 309", tracked: false}
+          - {op: COURSE, code: "BIOL 230", tracked: false}
+          - {op: COURSE, code: "CHEM 301", tracked: false}
+          - {op: COURSE, code: "CHEM 302", tracked: false}
+          - {op: COURSE, code: "CHEM 341", tracked: false}
+          - {op: COURSE, code: "CIVL 200", tracked: false}
+          - {op: COURSE, code: "CONS 330", tracked: false}
+          - {op: COURSE, code: "ECON 210", tracked: false}
+          - {op: COURSE, code: "ENDS 221", tracked: false}
+          - {op: COURSE, code: "ENVR 200", tracked: false}
+          - {op: COURSE, code: "ENVR 300", tracked: false}
+          - {op: COURSE, code: "EOSC 270", tracked: false}
+          - {op: COURSE, code: "EOSC 340", tracked: false}
+          - {op: COURSE, code: "EOSC 345", tracked: false}
+          - {op: COURSE, code: "FRST 100", tracked: false}
+          - {op: COURSE, code: "GEOG 211", tracked: false}
+          - {op: COURSE, code: "GEOG 310", tracked: false}
+          - {op: COURSE, code: "HIST 106", tracked: false}
+          - {op: COURSE, code: "ISCI 360", tracked: false}
+          - {op: COURSE, code: "ISCI 361", tracked: false}
+          - {op: COURSE, code: "LAW 386", tracked: false}
+          - {op: COURSE, code: "LFS 250", tracked: false}
+          - {op: COURSE, code: "PHYS 333", tracked: true}
+          - {op: COURSE, code: "POLI 351", tracked: false}
+          - {op: COURSE, code: "PSYC 321", tracked: false}
+          - {op: COURSE, code: "PSYC 421", tracked: false}
+          - {op: COURSE, code: "SCIE 120", tracked: true}
+          - {op: COURSE, code: "SCIE 320", tracked: true}
+      - op: ONE_OF
+        children:
+          - {op: STANDING, year: 4}
+          - {op: PERMISSION, note: "permission of the instructor"}
+
+- code: "MATH 223"
+  text: "One of (a) one of MATH_V 120, MATH_V 121, SCIE_V 001, or (b) a score of 80% or higher in one of MATH_V 100, MATH_V 102, MATH_V 104, MATH_V 110, MATH_V 180, MATH_V 184, MATH_O 100, or (c) a score of 68% or higher in one of MATH_V 101, MATH_V 103, MATH_V 105, MATH_V 111, MATH_V 152, MATH_V 221, MATH_O 101, MATH_O 103, MATH_O 221, or (d) SCIE_V 001 as a corequisite"
+  tree:
+    op: ONE_OF
+    children:
+      - op: ONE_OF
+        children:
+          - {op: COURSE, code: "MATH 120", tracked: true}
+          - {op: COURSE, code: "MATH 121", tracked: true}
+          - {op: COURSE, code: "SCIE 001", tracked: true}
+      - op: MIN_GRADE
+        percent: 80
+        child:
+          op: ONE_OF
+          children:
+            - {op: COURSE, code: "MATH 100", tracked: true}
+            - {op: COURSE, code: "MATH 102", tracked: true}
+            - {op: COURSE, code: "MATH 104", tracked: true}
+            - {op: COURSE, code: "MATH 110", tracked: true}
+            - {op: COURSE, code: "MATH 180", tracked: true}
+            - {op: COURSE, code: "MATH 184", tracked: true}
+            - {op: OUT_OF_SCOPE, code: "MATH_O 100", reason: okanagan}
+      - op: MIN_GRADE
+        percent: 68
+        child:
+          op: ONE_OF
+          children:
+            - {op: COURSE, code: "MATH 101", tracked: true}
+            - {op: COURSE, code: "MATH 103", tracked: true}
+            - {op: COURSE, code: "MATH 105", tracked: true}
+            - {op: COURSE, code: "MATH 111", tracked: true}
+            - {op: COURSE, code: "MATH 152", tracked: true}
+            - {op: COURSE, code: "MATH 221", tracked: true}
+            - {op: OUT_OF_SCOPE, code: "MATH_O 101", reason: okanagan}
+            - {op: OUT_OF_SCOPE, code: "MATH_O 103", reason: okanagan}
+            - {op: OUT_OF_SCOPE, code: "MATH_O 221", reason: okanagan}
+      - op: UNPARSED
+        text: "SCIE_V 001 as a corequisite"
+
+- code: "MATH 223"
+  text: "One of (a) one of MATH_V 120, MATH_V 121, SCIE_V 001, or (b) a score of 80% or higher in one of MATH_V 100, MATH_V 102, MATH_V 104, MATH_V 110, MATH_V 180, MATH_V 184, MATH_O 100, or (c) a score of 68% or higher in one of MATH_V 101, MATH_V 103, MATH_V 105, MATH_V 111, MATH_V 152, MATH_V 221, MATH_O 101, MATH_O 103, MATH_O 221, or (d) SCIE_V 001 as a corequisite"
+  tree:
+    op: ONE_OF
+    children:
+      - op: ONE_OF
+        children:
+          - {op: COURSE, code: "MATH 120", tracked: true}
+          - {op: COURSE, code: "MATH 121", tracked: true}
+          - {op: COURSE, code: "SCIE 001", tracked: true}
+      - op: MIN_GRADE
+        percent: 80
+        child:
+          op: ONE_OF
+          children:
+            - {op: COURSE, code: "MATH 100", tracked: true}
+            - {op: COURSE, code: "MATH 102", tracked: true}
+            - {op: COURSE, code: "MATH 104", tracked: true}
+            - {op: COURSE, code: "MATH 110", tracked: true}
+            - {op: COURSE, code: "MATH 180", tracked: true}
+            - {op: COURSE, code: "MATH 184", tracked: true}
+            - {op: OUT_OF_SCOPE, code: "MATH_O 100", reason: okanagan}
+      - op: MIN_GRADE
+        percent: 68
+        child:
+          op: ONE_OF
+          children:
+            - {op: COURSE, code: "MATH 101", tracked: true}
+            - {op: COURSE, code: "MATH 103", tracked: true}
+            - {op: COURSE, code: "MATH 105", tracked: true}
+            - {op: COURSE, code: "MATH 111", tracked: true}
+            - {op: COURSE, code: "MATH 152", tracked: true}
+            - {op: COURSE, code: "MATH 221", tracked: true}
+            - {op: OUT_OF_SCOPE, code: "MATH_O 101", reason: okanagan}
+            - {op: OUT_OF_SCOPE, code: "MATH_O 103", reason: okanagan}
+            - {op: OUT_OF_SCOPE, code: "MATH_O 221", reason: okanagan}
+      - op: UNPARSED
+        text: "SCIE_V 001 as a corequisite"
+
+- code: "PHYS 107"
+  text: "Either (a) a score of 85% or higher in all of PHYS 12, MATH 12 or (b) a score of 85% or higher in all of PHYS 12, PREC 12 or (c) a score of 85% or higher in all of PHYS 12, CALC 12 or (d) a score of 85% or higher in PHYS 100. MATH 12 = Principles of Mathematics 12; PREC 12 = Pre-Calculus 12; CALC 12 = Calculus 12; PHYS 12 = Physics 12"
+  tree:
+    op: ONE_OF
+    children:
+      - op: MIN_GRADE
+        percent: 85
+        child:
+          op: ALL_OF
+          children:
+            - {op: COURSE, code: "PHYS 12", tracked: false}
+            - {op: COURSE, code: "MATH 12", tracked: false}
+      - op: MIN_GRADE
+        percent: 85
+        child:
+          op: ALL_OF
+          children:
+            - {op: COURSE, code: "PHYS 12", tracked: false}
+            - {op: COURSE, code: "PREC 12", tracked: false}
+      - op: MIN_GRADE
+        percent: 85
+        child:
+          op: ALL_OF
+          children:
+            - {op: COURSE, code: "PHYS 12", tracked: false}
+            - {op: COURSE, code: "CALC 12", tracked: false}
+      - op: MIN_GRADE
+        percent: 85
+        child: {op: COURSE, code: "PHYS 100", tracked: true}
+
+- code: "MATH 131"
+  text: "One of (a) one of MATH_V 120, MATH_V 121, SCIE_V 001, or (b) a score of 80% or higher in one of MATH_V 100, MATH_V 102, MATH_V 104, MATH_V 110, MATH_V 180, MATH_V 184, or (c) a score of 68% or higher in one of MATH_V 101, MATH_V 103, MATH_V 105, MATH_V 152, MATH_V 111, MATH_V 221, or (d) SCIE_V 001 as a corequisite"
+  tree:
+    op: ONE_OF
+    children:
+      - op: ONE_OF
+        children:
+          - {op: COURSE, code: "MATH 120", tracked: true}
+          - {op: COURSE, code: "MATH 121", tracked: true}
+          - {op: COURSE, code: "SCIE 001", tracked: true}
+      - op: MIN_GRADE
+        percent: 80
+        child:
+          op: ONE_OF
+          children:
+            - {op: COURSE, code: "MATH 100", tracked: true}
+            - {op: COURSE, code: "MATH 102", tracked: true}
+            - {op: COURSE, code: "MATH 104", tracked: true}
+            - {op: COURSE, code: "MATH 110", tracked: true}
+            - {op: COURSE, code: "MATH 180", tracked: true}
+            - {op: COURSE, code: "MATH 184", tracked: true}
+      - op: MIN_GRADE
+        percent: 68
+        child:
+          op: ONE_OF
+          children:
+            - {op: COURSE, code: "MATH 101", tracked: true}
+            - {op: COURSE, code: "MATH 103", tracked: true}
+            - {op: COURSE, code: "MATH 105", tracked: true}
+            - {op: COURSE, code: "MATH 152", tracked: true}
+            - {op: COURSE, code: "MATH 111", tracked: true}
+            - {op: COURSE, code: "MATH 221", tracked: true}
+      - op: UNPARSED
+        text: "SCIE_V 001 as a corequisite"
+    
+- code: "WRDS 390"
+  text: "Third year standing and 3 credits from one of WRDS_V 150, WRDS_V 151, WRDS_V 350, ENGL_V 100, SCIE_V 113, SCIE_V 300, CHEM_V 300, APSC_V 176, LFS_V 150, FRST_V 150, NRES_V 150, COMM_V 196, Arts One, ASTU_V 100, ASTU_V 101, CAP_V 100"
+  tree:
+    op: ALL_OF
+    children:
+      - {op: STANDING, year: 3}
+      - op: ONE_OF
+        children:
+          - {op: COURSE, code: "WRDS 150", tracked: true}
+          - {op: COURSE, code: "WRDS 151", tracked: true}
+          - {op: COURSE, code: "WRDS 350", tracked: true}
+          - {op: COURSE, code: "ENGL 100", tracked: true}
+          - {op: COURSE, code: "SCIE 113", tracked: true}
+          - {op: COURSE, code: "SCIE 300", tracked: true}
+          - {op: COURSE, code: "CHEM 300", tracked: false}
+          - {op: COURSE, code: "APSC 176", tracked: false}
+          - {op: COURSE, code: "LFS 150", tracked: false}
+          - {op: COURSE, code: "FRST 150", tracked: false}
+          - {op: COURSE, code: "NRES 150", tracked: false}
+          - {op: COURSE, code: "COMM 196", tracked: false}
+          - {op: PROGRAM, name: "Arts One"}
+          - {op: COURSE, code: "ASTU 100", tracked: false}
+          - {op: COURSE, code: "ASTU 101", tracked: false}
+          - {op: COURSE, code: "CAP 100", tracked: false}
+
+- code: "DSCI 310"
+  text: "One of (a) DSCI_V 221, (b) DSCI_V 100 and one of CPSC_V 203, CPSC_V 210, CPEN_V 221, or (c) DSCI_V 100, either MATH_V 210 or ECON_V 323, and either CPSC_V 107 or CPSC_V 110"
+  tree:
+    op: ONE_OF
+    children:
+      - {op: COURSE, code: "DSCI 221", tracked: true}
+      - op: ALL_OF
+        children:
+          - {op: COURSE, code: "DSCI 100", tracked: true}
+          - op: ONE_OF
+            children:
+              - {op: COURSE, code: "CPSC 203", tracked: true}
+              - {op: COURSE, code: "CPSC 210", tracked: true}
+              - {op: COURSE, code: "CPEN 221", tracked: true}
+      - op: ALL_OF
+        children:
+          - {op: COURSE, code: "DSCI 100", tracked: true}
+          - op: ONE_OF
+            children:
+              - {op: COURSE, code: "MATH 210", tracked: true}
+              - {op: COURSE, code: "ECON 323", tracked: false}
+          - op: ONE_OF
+            children:
+              - {op: COURSE, code: "CPSC 107", tracked: true}
+              - {op: COURSE, code: "CPSC 110", tracked: true}
+
+- code: "MATH 102"
+  text: "High-school calculus and a score of 80% or higher in BC Principles of Mathematics 12 or Pre-calculus 12"
+  tree:
+    op: ALL_OF
+    children:
+      - {op: UNPARSED, text: "High-school calculus"}
+      - op: MIN_GRADE
+        percent: 80
+        child:
+          op: ONE_OF
+          children:
+            - {op: COURSE, code: "MATH 12", tracked: false}
+            - {op: COURSE, code: "PREC 12", tracked: false}
+
+- code: "MATH 226"
+  text: "Either (a) a score of 68% or higher in MATH_V 121 or (b) a score of 80% or higher in one of MATH_V 101, MATH_V 103, MATH_V 105, SCIE_V 001, MATH_O 101, MATH_O 103. Corequisite: One of MATH_V 152, MATH_V 221, MATH_V 223, MATH_O 222"
+  tree:
+    op: ONE_OF
+    children:
+      - op: MIN_GRADE
+        percent: 68
+        child: {op: COURSE, code: "MATH 121", tracked: true}
+      - op: MIN_GRADE
+        percent: 80
+        child:
+          op: ONE_OF
+          children:
+            - {op: COURSE, code: "MATH 101", tracked: true}
+            - {op: COURSE, code: "MATH 103", tracked: true}
+            - {op: COURSE, code: "MATH 105", tracked: true}
+            - {op: COURSE, code: "SCIE 001", tracked: true}
+            - {op: OUT_OF_SCOPE, code: "MATH_O 101", reason: okanagan}
+            - {op: OUT_OF_SCOPE, code: "MATH_O 103", reason: okanagan}
+
+- code: "CPSC 430"
+  text: "3 credits of Computer Science and at least third-year standing"
+  tree:
+    op: ALL_OF
+    children:
+      - op: MIN_CREDITS
+        credits: 3
+        from:
+          subjects: ["CPSC"]
+      - {op: STANDING, year: 3}
+
+- code: "CPSC 320"
+  text: "All of (a) CPSC_V 221 or DSCI_V 221, (b) at least 3 credits from MATH_V or STAT_V at 200 level or above or MATH_O 200, MATH_O 220, MATH_O 222, MATH_O 225, MATH_O 307, STAT_O 121, STAT_O 203, STAT_O 205, STAT_O 230, STAT_O 303 or any course on the STAT_V 200 credit exclusion: https://vancouver.calendar.ubc.ca/faculties-colleges-and-schools/facult… or HES_O 340, HMKN_O 205, POLI_O 400, PSYO_O 271, STAT_O 124"
+  ambiguous: true
+  note: >
+    Scope of "at least 3 credits" is unclear — it may govern only the
+    MATH_V/STAT_V clause, or the entire following enumeration. Two defensible
+    readings produce different trees.
+  tree:
+    op: ALL_OF
+    children:
+      - op: ONE_OF
+        children:
+          - {op: COURSE, code: "CPSC 221", tracked: true}
+          - {op: COURSE, code: "DSCI 221", tracked: true}
+      - op: ONE_OF
+        children:
+          - op: MIN_CREDITS
+            credits: 3
+            from:
+              subjects: ["MATH", "STAT"]
+              level_min: 200
+          - op: ONE_OF
+            children:
+             - {op: OUT_OF_SCOPE, code: "MATH_O 200", reason: okanagan}
+             - {op: OUT_OF_SCOPE, code: "MATH_O 220", reason: okanagan}
+             - {op: OUT_OF_SCOPE, code: "MATH_O 222", reason: okanagan}
+             - {op: OUT_OF_SCOPE, code: "MATH_O 225", reason: okanagan}
+             - {op: OUT_OF_SCOPE, code: "MATH_O 307", reason: okanagan}
+             - {op: OUT_OF_SCOPE, code: "STAT_O 121", reason: okanagan}
+             - {op: OUT_OF_SCOPE, code: "STAT_O 203", reason: okanagan}
+             - {op: OUT_OF_SCOPE, code: "STAT_O 205", reason: okanagan}
+             - {op: OUT_OF_SCOPE, code: "STAT_O 230", reason: okanagan}
+             - {op: OUT_OF_SCOPE, code: "STAT_O 303", reason: okanagan}
+          - op: EXTERNAL_LIST
+            description: "any course on the STAT_V 200 credit exclusion list"
+            url: "https://vancouver.calendar.ubc.ca/faculties-colleges-and-schools/faculty-science/bachelor-science/credit-exclusion-lists"
+          - op: ONE_OF
+            children:
+             - {op: OUT_OF_SCOPE, code: "HES_O 340", reason: okanagan}
+             - {op: OUT_OF_SCOPE, code: "HMKN_O 205", reason: okanagan}
+             - {op: OUT_OF_SCOPE, code: "POLI_O 400", reason: okanagan}
+             - {op: OUT_OF_SCOPE, code: "PSYO_O 271", reason: okanagan}
+             - {op: OUT_OF_SCOPE, code: "STAT_O 124", reason: okanagan}
+
+- code: "PHYS 404"
+  text: "Third year standing in Science or Applied Science is required. MATH 200 (or MATH 217 or MATH 226) is recommended"
+  tree:
+    op: ALL_OF
+    children:
+      - {op: STANDING, year: 3}
+      - op: ONE_OF
+        children:
+          - {op: PROGRAM, name: "Science"}
+          - {op: PROGRAM, name: "Applied Science"}
+
+- code: "STAT 398"
+  text: "Registration in Statistics Honours or Major Program"
+  tree:
+    op: ONE_OF
+    children:
+      - {op: PROGRAM, name: "Statistics Honours"}
+      - {op: PROGRAM, name: "Statistics Major"}
+
+- code: "CPEN 642"
+  text: "by permission of the instructor"
+  tree:
+    {op: PERMISSION, note: "permission of the instructor"}
+  
+- code: "CPSC 436"
+  text: "Third-year standing in a Computer Science or Computer Engineering specialization, and permission of the department"
+  tree:
+    op: ALL_OF
+    children:
+      - {op: STANDING, year: 3}
+      - op: ONE_OF
+        children:
+          - {op: PROGRAM, name: "Computer Science"}
+          - {op: PROGRAM, name: "Computer Engineering"}
+      - {op: PERMISSION, note: "permission of the department"}
+
+- code: "MATH 210"
+  text: "One of MATH_V 101, MATH_V 103, MATH_V 105, MATH_V 121, SCIE_V 001, MATH_O 101, MATH_O 103"
+  tree:
+    op: ONE_OF
+    children:
+      - {op: COURSE, code: "MATH 101", tracked: true}
+      - {op: COURSE, code: "MATH 103", tracked: true}
+      - {op: COURSE, code: "MATH 105", tracked: true}
+      - {op: COURSE, code: "MATH 121", tracked: true}
+      - {op: COURSE, code: "SCIE 001", tracked: true}
+      - {op: OUT_OF_SCOPE, code: "MATH_O 101", reason: okanagan}
+      - {op: OUT_OF_SCOPE, code: "MATH_O 103", reason: okanagan}
+
+- code: "PHYS 216"
+  text: "One of PHYS_V 106, PHYS_V 107, PHYS_V 117, PHYS_V 170, SCIE_V 001, PHYS_O 111 and one of MATH_V 152, MATH_V 221, MATH_V 223, MATH_O 222"
+  tree:
+    op: ALL_OF
+    children:
+      - op: ONE_OF
+        children:
+          - {op: COURSE, code: "PHYS 106", tracked: true}
+          - {op: COURSE, code: "PHYS 107", tracked: true}
+          - {op: COURSE, code: "PHYS 117", tracked: true}
+          - {op: COURSE, code: "PHYS 170", tracked: true}
+          - {op: COURSE, code: "SCIE 001", tracked: true}
+          - {op: OUT_OF_SCOPE, code: "PHYS_O 111", reason: okanagan}
+      - op: ONE_OF
+        children:
+          - {op: COURSE, code: "MATH 152", tracked: true}
+          - {op: COURSE, code: "MATH 221", tracked: true}
+          - {op: COURSE, code: "MATH 223", tracked: true}
+          - {op: OUT_OF_SCOPE, code: "MATH_O 222", reason: okanagan}
+  
+- code: "CPEN 355"
+  text: "One of MATH_V 152, MATH_V 221 and one of MATH_V 318, MATH_V 302, STAT_V 302, STAT_V 321, ELEC_V 321 and one of CPEN_V 221, CPEN_V 223, CPSC_V 259. Credit cannot be obtained for both CPEN_V 355 and CPSC_V 340"
+  tree:
+    op: ALL_OF
+    children:
+      - op: ONE_OF
+        children:
+          - {op: COURSE, code: "MATH 152", tracked: true}
+          - {op: COURSE, code: "MATH 221", tracked: true}
+      - op: ONE_OF
+        children:
+          - {op: COURSE, code: "MATH 318", tracked: true}
+          - {op: COURSE, code: "MATH 302", tracked: true}
+          - {op: COURSE, code: "STAT 302", tracked: true}
+          - {op: COURSE, code: "STAT 321", tracked: true}
+          - {op: COURSE, code: "ELEC 321", tracked: false}
+      - op: ONE_OF
+        children:
+          - {op: COURSE, code: "CPEN 221", tracked: true}
+          - {op: COURSE, code: "CPEN 223", tracked: true}
+          - {op: COURSE, code: "CPSC 259", tracked: true}
+
+- code: "STAT 300"
+  text: "One of STAT_V 200, STAT_V 203, STAT_V 241, STAT_V 251, BIOL_V 300, BUSI_V 291, COMM_V 191, COMM_V 291, ECON_V 325, ECON_V 327, FRST_V 231, KIN_V 206, LFS_V 252, POLI_V 380, PSYC_V 218, PSYC_V 278, HES_O 340, POLI_O 400, STAT_O 121, STAT_O 121, STAT_O 205, STAT_O 230"
+  tree:
+    op: ONE_OF
+    children:
+      - {op: COURSE, code: "STAT 200", tracked: true}
+      - {op: COURSE, code: "STAT 203", tracked: true}
+      - {op: COURSE, code: "STAT 241", tracked: true}
+      - {op: COURSE, code: "STAT 251", tracked: true}
+      - {op: COURSE, code: "BIOL 300", tracked: false}
+      - {op: COURSE, code: "BUSI 291", tracked: false}
+      - {op: COURSE, code: "COMM 191", tracked: false}
+      - {op: COURSE, code: "COMM 291", tracked: false}
+      - {op: COURSE, code: "ECON 325", tracked: false}
+      - {op: COURSE, code: "ECON 327", tracked: false}
+      - {op: COURSE, code: "FRST 231", tracked: false}
+      - {op: COURSE, code: "KIN 206", tracked: false}
+      - {op: COURSE, code: "LFS 252", tracked: false}
+      - {op: COURSE, code: "POLI 380", tracked: false}
+      - {op: COURSE, code: "PSYC 218", tracked: false}
+      - {op: COURSE, code: "PSYC 278", tracked: false}
+      - {op: OUT_OF_SCOPE, code: "HES_O 340", reason: okanagan}
+      - {op: OUT_OF_SCOPE, code: "POLI_O 400", reason: okanagan}
+      - {op: OUT_OF_SCOPE, code: "STAT_O 121", reason: okanagan}
+      - {op: OUT_OF_SCOPE, code: "STAT_O 205", reason: okanagan}
+      - {op: OUT_OF_SCOPE, code: "STAT_O 230", reason: okanagan}
+
+- code: "PHYS 502"
+  text: "A background in undergraduate solid state physics such as covered in PHYS_V 474 is highly recommended"
+  tree: null
+
+- code: "CPSC 445"
+  text: "CPSC 320. and either BMEG 250 or six credits of BIOL beyond BIOL 111"
+  tree:
+    op: ALL_OF
+    children:
+      - {op: COURSE, code: "CPSC 320", tracked: true}
+      - op: ONE_OF
+        children:
+          - {op: COURSE, code: "BMEG 250", tracked: false}
+          - op: UNPARSED
+            text: "six credits of BIOL beyond BIOL 111"
+
+- code: "DSCI 591"
+  text: "All of DSCI_V 513, DSCI_V 524, DSCI_V 525, DSCI_V 532, DSCI_V 541, DSCI_V 542, DSCI_V 554, DSCI_V 563, DSCI_V 573, DSCI_V 574, DSCI_V 575"
+  tree:
+    op: ALL_OF
+    children:
+      - {op: COURSE, code: "DSCI 513", tracked: true}
+      - {op: COURSE, code: "DSCI 524", tracked: true}
+      - {op: COURSE, code: "DSCI 525", tracked: true}
+      - {op: COURSE, code: "DSCI 532", tracked: true}
+      - {op: COURSE, code: "DSCI 541", tracked: true}
+      - {op: COURSE, code: "DSCI 542", tracked: true}
+      - {op: COURSE, code: "DSCI 554", tracked: true}
+      - {op: COURSE, code: "DSCI 563", tracked: true}
+      - {op: COURSE, code: "DSCI 573", tracked: true}
+      - {op: COURSE, code: "DSCI 574", tracked: true}
+      - {op: COURSE, code: "DSCI 575", tracked: true}
+
+- code: "PHYS 521"
+  text: "PHYS_V 500"
+  tree: {op: COURSE, code: "PHYS 500", tracked: true}
+
+- code: "STAT 445"
+  text: "[STAT306]"
+  tree: {op: COURSE, code: "STAT 306", tracked: true}
+
+- code: "CPSC 449"
+  text: "[CPSC349]"
+  tree: {op: COURSE, code: "CPSC 349", tracked: true}
+
+- code: "CPSC 525"
+  text: null
+  tree: null
+
+- code: "ENGL 310"
+  text: null
+  tree: null

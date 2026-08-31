@@ -22,6 +22,7 @@ psycopg-binary==3.3.4
 Pygments==2.21.0
 pytest==9.1.1
 python-dotenv==1.2.3
+PyYAML==6.0.3
 requests==2.34.2
 ruff==0.16.5
 soupsieve==2.9.2
