@@ -1,5 +1,6 @@
 {
   "[makefile]": {
     "editor.insertSpaces": false
-  }
+},
+"makefile.configureOnOpen": false
 }

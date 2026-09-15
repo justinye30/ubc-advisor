@@ -195,3 +195,11 @@ Running log of choices made and why. Newest at the bottom.
   so a dedicated node type would add schema surface without enabling a correct
   answer. UNPARSED yields INDETERMINATE with the clause quoted, which is honest.
   
+- **Sweep hides 500-level courses by default.** Graduate courses are not open
+  to undergraduates, but the calendar does not encode that as a prerequisite —
+  so they evaluated as "eligible" for a student with no transcript. The 500+
+  cutoff is a heuristic, not something derived from the data.
+- **Absence of a prerequisite sentence is not evidence of open registration.**
+  405 of 718 courses have no listed prerequisite; many are still restricted by
+  program, year, or instructor approval. Reported under a separate heading
+  rather than as "eligible."

@@ -1,4 +1,4 @@
-.PHONY: up down reset logs shell psql test lint fetch parse extract eval
+.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli
 
 up:            ## start the stack (foreground)
 	docker compose up --build
@@ -35,3 +35,6 @@ extract:       ## extract prereq trees (LLM)
 
 eval:          ## measure extraction accuracy against golden set
 	docker compose exec app python -m eval.run_eval
+
+cli:           ## run the CLI: make cli ARGS="check --want 'CPSC 221'"
+	docker compose exec app python -m core.cli $(ARGS)
