@@ -203,3 +203,33 @@ Running log of choices made and why. Newest at the bottom.
   405 of 718 courses have no listed prerequisite; many are still restricted by
   program, year, or instructor approval. Reported under a separate heading
   rather than as "eligible."
+
+## Policy corpus (Week 2)
+
+- **13 pages, all B.Sc.-scoped.** Program requirements plus the regulations
+  pages covering registration, repeating courses, credit, and standing. Kept
+  small on purpose: every extra page is another chance to retrieve the wrong
+  chunk.
+- **Credit Exclusion Lists excluded from the vector corpus.** Hundreds of lines
+  of code pairs, not prose. That's structured data and belongs in
+  `credit_exclusions`, looked up deterministically, same as prerequisite trees.
+- **Chunks split on headings, never inside a block.** A paragraph, list, or
+  table is atomic. Long sections split between blocks, with the last small
+  prose block repeated as overlap. Tables are never split and never carried
+  as overlap.
+- **Tables stay whole because the exceptions are in the footnotes.** e.g. the
+  CS Major's STAT_V 251 substitution rule is footnote 2 of the requirements
+  table. Cost: a few oversize chunks on the combined-major tables. Revisit if
+  Step 10 recall suffers.
+- **Footnote superscripts rewritten as ` [n]` before text extraction.**
+  Flattening `CPSC_V 210<sup>1</sup>` yields `CPSC_V 2101`, a different
+  course code. Checked by a SQL query for 4-digit course numbers.
+- **Section path is embedded in chunk content**, not just stored alongside.
+  Table rows are meaningless to an embedding model without their heading.
+- **Chunk text keeps calendar code formatting (`CPSC_V`).** Normalization
+  happens at comparison time (entity extraction, citation guard).
+- **Token counts are chars/4 estimates** until the embedding model is chosen.
+- **Page chrome is detected, not assumed absent.** Canary strings ("Main
+  navigation") in any chunk fail the run.
+- **Terms of Use:** 13 additional requests at the 10s robots.txt delay;
+  same clause (f) reasoning as the subject index fetch.

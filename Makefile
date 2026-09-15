@@ -1,4 +1,4 @@
-.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli
+.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli fetch-policy chunk
 
 up:            ## start the stack (foreground)
 	docker compose up --build
@@ -38,3 +38,9 @@ eval:          ## measure extraction accuracy against golden set
 
 cli:           ## run the CLI: make cli ARGS="check --want 'CPSC 221'"
 	docker compose exec app python -m core.cli $(ARGS)
+
+fetch-policy:  ## fetch policy pages into raw_pages
+	docker compose exec app python -m ingest.fetch --type policy
+
+chunk:         ## chunk cached policy pages into policy_chunks
+	docker compose exec app python -m ingest.chunk_policy
