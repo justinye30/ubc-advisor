@@ -1,0 +1,121 @@
+# Retrieval eval: 15 questions with known-correct chunks.
+#
+# Written BEFORE the first run. After you've seen results, only edit an entry
+# if its label is wrong (the runner checks labels against the DB first) —
+# never to make a miss go away.
+#
+# A retrieved chunk counts as correct if it matches ANY entry under `expect`.
+# An entry matches when all of its given fields match:
+#   page      — last path segment of source_url (required)
+#   section   — case-insensitive substring of section_path
+#   contains  — case/whitespace-insensitive substring of content
+#
+# kind: paraphrase — student wording, little overlap with the calendar's
+#       code       — hinges on a literal course code
+
+- id: repeat-passed
+  kind: paraphrase
+  question: I passed a course but my mark was low. Am I allowed to take it again to raise it?
+  expect:
+    - page: course-and-specialization-approval
+      contains: repeat that course for higher standing
+
+- id: third-attempt
+  kind: paraphrase
+  question: I've failed the same class twice. Can I try it one more time?
+  expect:
+    - page: course-and-specialization-approval
+      contains: third time
+
+- id: letter-of-permission
+  kind: paraphrase
+  question: How many credits can I take at another school and transfer back while I'm in a science degree?
+  expect:
+    - page: credit-ubc-and-elsewhere
+      contains: limited to six credits
+
+- id: science-credit-total
+  kind: paraphrase
+  question: How many of my credits have to be science courses?
+  expect:
+    - page: science-and-arts-requirements
+      contains: 72 credits
+
+- id: residency
+  kind: paraphrase
+  question: How much of my degree do I actually have to complete at UBC?
+  expect:
+    - page: general-degree-requirements
+      contains: 50% of the credits
+
+- id: corequisite-meaning
+  kind: paraphrase
+  question: What does it mean when a course has a corequisite?
+  expect:
+    - page: registration
+      contains: taken concurrently
+
+- id: overlapping-courses
+  kind: paraphrase
+  question: Two courses cover almost the same material. Can I get credit for both of them?
+  expect:
+    - page: registration
+      contains: credit exclusion
+    - page: course-and-specialization-approval
+      contains: credit exclusion
+
+- id: communication-courses
+  kind: paraphrase
+  question: Which writing courses count toward the communication requirement?
+  expect:
+    - page: communication-requirements
+
+- id: low-average
+  kind: paraphrase
+  question: What happens if my grades are really bad at the end of the year?
+  expect:
+    - page: academic-performance-review-and-continuation
+
+- id: third-year-standing
+  kind: paraphrase
+  question: How many credits do I need before I count as a third-year student?
+  expect:
+    - page: promotion-requirements-and-degree-progression
+
+- id: coop-option
+  kind: paraphrase
+  question: How do I get into co-op as a computer science student?
+  expect:
+    - page: computer-science
+      section: Co-operative Education Option
+
+- id: honours-admission
+  kind: paraphrase
+  question: What do I need to get into the CS honours program?
+  expect:
+    - page: computer-science
+      section: Admission and Continuation Requirements for Honours
+    - page: introduction-degree-options
+      contains: honours
+
+- id: lecture-based
+  kind: code
+  question: Which CPSC courses don't count as lecture-based for the 400-level requirement?
+  expect:
+    - page: computer-science
+      section: Lecture-based courses
+
+- id: comm-337
+  kind: code
+  question: Can I use COMM 337 as an elective in my computer science degree?
+  expect:
+    - page: computer-science
+      section: Electives
+
+- id: stat-251-substitute
+  kind: code
+  question: What can I take instead of STAT 251 in the CS major?
+  expect:
+    - page: computer-science
+      section: "Major (0376): Computer Science"
+      contains: may be replaced by STAT_V 200

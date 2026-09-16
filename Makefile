@@ -1,4 +1,4 @@
-.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli fetch-policy chunk
+.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli fetch-policy chunk embed search eval-retrieval
 
 up:            ## start the stack (foreground)
 	docker compose up --build
@@ -44,3 +44,12 @@ fetch-policy:  ## fetch policy pages into raw_pages
 
 chunk:         ## chunk cached policy pages into policy_chunks
 	docker compose exec app python -m ingest.chunk_policy
+
+embed:          ## embed policy chunks: make embed ARGS="--dry-run"
+	docker compose exec app python -m ingest.embed_policy $(ARGS)
+
+search:         ## search policy text: make search Q="can I retake a course" ARGS="--mode hybrid"
+	docker compose exec app python -m core.retrieval "$(Q)" $(ARGS)
+
+eval-retrieval: ## recall@k for policy retrieval, vector vs hybrid
+	docker compose exec app python -m eval.run_retrieval_eval $(ARGS)

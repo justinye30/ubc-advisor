@@ -233,3 +233,41 @@ Running log of choices made and why. Newest at the bottom.
   navigation") in any chunk fail the run.
 - **Terms of Use:** 13 additional requests at the 10s robots.txt delay;
   same clause (f) reasoning as the subject index fetch.
+
+## Embeddings and retrieval
+
+- **Model: Voyage `voyage-4`, 1024 dims.** Anthropic doesn't offer an
+  embedding model and its docs point to Voyage. Free tier covers this corpus
+  many times over; query/document input types suit short-question-vs-long-
+  passage retrieval; the 4-series shared embedding space allows a cheaper
+  query model later without re-embedding.
+- **`policy_chunks.embedding` resized 1536 → 1024** (003). Free while every
+  row was NULL; the 1536 in 002 was a placeholder pending this decision.
+- **Called over REST with `requests`**, not the voyageai SDK: no new
+  dependency to keep compatible with Python 3.14.
+- **`embedding_model` stored per row.** Search filters on it; the embed
+  script refuses to mix models without `--redo`. Vectors from different
+  models are not comparable and fail silently if mixed.
+- **Truncation disabled.** An over-long chunk errors instead of being cut.
+- **HNSW index created but unused at this size** — the planner prefers an
+  exact scan over ~100 rows, so recall numbers reflect the embeddings, not
+  index approximation.
+- **Hybrid = vector + course-code exact match, fused with RRF (k=60).**
+  Plain full-text search over the whole question failed in testing: Postgres
+  ANDs every term, so incidental words ("something") kill matches. The
+  lexical leg only searches for course codes, using subjects found in the
+  corpus, and does nothing for questions without one.
+- **Retrieval eval: 15 questions, labels checked against the DB before scoring.**
+  Baseline (voyage-4, 105 chunks): vector recall@1 0.80,
+  recall@5 1.00, MRR@10 0.88; hybrid recall@1 0.87, recall@5 1.00,
+  MRR@10 0.93. The one difference: stat-251-substitute went from rank 5
+  (vector) to rank 1 (hybrid), the literal-code weakness predicted in the
+  plan. No paraphrase question changed.
+- **Decision: hybrid is the default.**
+  Caveat: recall@5 is at ceiling on a 105-chunk corpus; recall@1 and MRR
+  are the discriminating numbers going forward.
+- **Known retrieval weak spots (not tuned — test set):** `residency` ranks
+  Credit Loads above the 50% rule (shared "at UBC" wording);
+  `letter-of-permission` ranks general Transfer Credit first, which is a
+  genuinely ambiguous reading of "transfer back." Both are cases for the
+  Step 14 composer: two plausible chunks, one right answer.
