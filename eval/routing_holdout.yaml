@@ -1,0 +1,47 @@
+# Held-out routing questions, written AFTER the baseline run exposed the
+# policy/out_of_scope confusion and BEFORE the prompt fix was measured.
+# routing_questions.yaml was used to diagnose that problem, so it can no
+# longer show whether the fix generalizes. These can. Don't tune on them.
+
+- id: hold-policy-coop
+  intent: policy
+  question: Do co-op placements count toward the credits I need to graduate?
+- id: hold-policy-upper
+  intent: policy
+  question: How many 300- and 400-level credits does a BSc require?
+- id: hold-policy-average
+  intent: policy
+  question: What average do I need to stay in good standing?
+- id: hold-policy-faculty-switch
+  intent: policy
+  question: If I transfer from Arts into Science, do my old courses still count?
+- id: hold-policy-replace
+  intent: policy
+  trap: course code in a program-requirements question
+  question: Is STAT 251 required in the CS major, or can something replace it?
+- id: hold-policy-elsewhere
+  intent: policy
+  trap: mentions another school, but asks about UBC's rule for studying elsewhere
+  question: Am I allowed to take a summer course at Langara while I'm a UBC student?
+- id: hold-elig
+  intent: eligibility
+  question: Could I register for MATH 318 with MATH 200 and MATH 221 done?
+- id: hold-path
+  intent: path
+  question: What's everything I'd need to get to CPSC 418?
+- id: hold-unlock
+  intent: unlock
+  question: Where does CPSC 310 lead?
+- id: hold-oos-probation
+  intent: out_of_scope
+  scope: personal_record
+  question: Am I on academic probation right now?
+- id: hold-oos-honours
+  intent: out_of_scope
+  scope: advice
+  question: Is it better to do honours or just a major?
+- id: hold-oos-coding
+  intent: out_of_scope
+  scope: course_content
+  trap: course code in a workload question
+  question: How much coding is there in STAT 302?

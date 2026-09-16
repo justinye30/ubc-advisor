@@ -23,6 +23,8 @@ KNOWN_RETIRED = frozenset(
     {"CPEN 322", "CPSC 261", "ENGL 112", "PHYS 257", "PHYS 313", "SCIE 120", "STAT 241"}
 )
 
+_CODE_IN_TEXT = re.compile(r"\b([A-Za-z]{2,5})(?:_([VvOo]))?\s*(\d{3}[A-Za-z]?)\b")
+
 class OutOfScope(Exception):
     """Raised for codes that are valid but outside this project's scope."""
 
@@ -71,6 +73,26 @@ def is_secondary_school(code: str) -> bool:
     """True for BC high-school courses written like codes: 'PHYS 12', 'PREC 11'."""
     parts = code.split()
     return len(parts) == 2 and parts[0].isalpha() and parts[1] in {"10", "11", "12"}
+
+
+def find_codes(text: str) -> list[str]:
+    """Explicit course codes in a question, normalized, in order of appearance.
+
+    Deliberately conservative: a subject must be one we ingest or be written
+    in capitals, so "take 300-level courses" doesn't yield "TAKE 300". Bare
+    numbers ("can I take 320?") are left for LLM entity extraction.
+    Okanagan (_O) codes are skipped.
+    """
+    found: list[str] = []
+    for subject, campus, number in _CODE_IN_TEXT.findall(text):
+        if campus.upper() == "O":
+            continue
+        if subject.upper() not in IN_SCOPE_SUBJECTS and not subject.isupper():
+            continue
+        code = f"{subject.upper()} {number.upper()}"
+        if code not in found:
+            found.append(code)
+    return found
 
 
 def subject_index_url(subject: str) -> str:

@@ -1,0 +1,153 @@
+# Routing eval: 40 questions, 8 per intent. Labels written BEFORE the first
+# run. Freeze the router prompt, then measure. If you change the prompt,
+# the PROMPT_VERSION changes and old results are no longer comparable.
+#
+# `trap` marks questions built to catch a known failure mode — mostly
+# course codes in questions that aren't about eligibility.
+# `scope` is the expected scope_reason for out_of_scope questions.
+
+# ---------- eligibility ----------
+- id: elig-direct
+  intent: eligibility
+  question: Can I take CPSC 221 if I've done CPSC 110, 121 and 210?
+- id: elig-prereqs
+  intent: eligibility
+  question: What are the prerequisites for CPSC 320?
+- id: elig-lowercase
+  intent: eligibility
+  question: am i eligible for cpsc 313
+- id: elig-grade
+  intent: eligibility
+  question: I got 64 in MATH 226. Is that enough for CPSC 221?
+- id: elig-sweep
+  intent: eligibility
+  question: What can I register in next term? I've finished CPSC 110 and CPSC 121.
+- id: elig-meet
+  intent: eligibility
+  question: Do I meet the requirements for STAT 302?
+- id: elig-open
+  intent: eligibility
+  question: Is CPSC 340 open to me now that I've done CPSC 221 and MATH 200?
+- id: elig-sweep-level
+  intent: eligibility
+  question: Which third-year CPSC courses can I take with CPSC 210, 213 and 221 done?
+
+# ---------- path ----------
+- id: path-before
+  intent: path
+  question: What do I need to take before I can get into CPSC 404?
+- id: path-how
+  intent: path
+  question: How do I get to CPSC 440 starting from first year?
+- id: path-chain
+  intent: path
+  question: What's the full chain of courses leading up to CPSC 421?
+- id: path-should
+  intent: path
+  trap: the word "should" without a choice between options
+  question: I want to take CPSC 314 eventually. What should I plan to take first?
+- id: path-stands
+  intent: path
+  question: What stands between me and CPSC 416? I've done CPSC 110 and 121.
+- id: path-avoid
+  intent: path
+  question: Is there any way to reach CPSC 420 without taking CPSC 320?
+- id: path-every-route
+  intent: path
+  question: Which courses are unavoidable on the way to CPSC 425?
+- id: path-steps
+  intent: path
+  question: How many prerequisite steps are there before MATH 320?
+
+# ---------- unlock ----------
+- id: unlock-direct
+  intent: unlock
+  question: What does CPSC 213 unlock?
+- id: unlock-opens
+  intent: unlock
+  question: If I take CPSC 221 this term, what opens up for me next?
+- id: unlock-requires
+  intent: unlock
+  question: Which courses list MATH 200 as a prerequisite?
+- id: unlock-after
+  intent: unlock
+  question: what can i take after finishing cpsc 210
+- id: unlock-fourth-year
+  intent: unlock
+  question: Is CPSC 221 a prerequisite for anything in fourth year?
+- id: unlock-depend
+  intent: unlock
+  question: What courses depend on STAT 251?
+- id: unlock-helps
+  intent: unlock
+  question: Does taking MATH 221 help me get into any CPSC courses?
+- id: unlock-just-finished
+  intent: unlock
+  question: I just finished CPSC 121. What does that lead to?
+
+# ---------- policy ----------
+- id: policy-retake
+  intent: policy
+  question: Can I retake a course I already passed to get a higher mark?
+- id: policy-retake-code
+  intent: policy
+  trap: course code in a repeat-course question
+  question: I passed CPSC 110 with a 55. Can I take it again to raise my grade?
+- id: policy-lop
+  intent: policy
+  question: How many credits can I take at another university on a Letter of Permission?
+- id: policy-science-credits
+  intent: policy
+  question: How many science credits do I need for a BSc?
+- id: policy-major-required
+  intent: policy
+  trap: course code in a program-requirements question
+  question: Is CPSC 213 required for the Computer Science major?
+- id: policy-standing
+  intent: policy
+  question: What happens if I fail too many courses in one year?
+- id: policy-elective
+  intent: policy
+  trap: course code in a program-requirements question
+  question: Can COMM 337 count as an elective in the CS major?
+- id: policy-exclusion
+  intent: policy
+  question: What does it mean if two courses are credit-excluded?
+
+# ---------- out_of_scope ----------
+- id: oos-choose
+  intent: out_of_scope
+  scope: advice
+  trap: course codes in an advice question
+  question: Should I take CPSC 320 or CPSC 322 next term?
+- id: oos-hard
+  intent: out_of_scope
+  scope: course_content
+  trap: course code in a difficulty question
+  question: Is CPSC 221 a hard course?
+- id: oos-instructor
+  intent: out_of_scope
+  scope: course_content
+  question: Who is teaching CPSC 310 this winter?
+- id: oos-registration-date
+  intent: out_of_scope
+  scope: registration
+  question: When does registration open for next winter session?
+- id: oos-gpa
+  intent: out_of_scope
+  scope: personal_record
+  question: What's my current GPA?
+- id: oos-equivalency
+  intent: out_of_scope
+  scope: other_institution
+  trap: sounds like transfer-credit policy, but asks for a specific equivalency
+  question: Does SFU's CMPT 225 count as CPSC 221?
+- id: oos-laptop
+  intent: out_of_scope
+  scope: unrelated
+  question: Can you recommend a good laptop for computer science?
+- id: oos-register-me
+  intent: out_of_scope
+  scope: registration
+  trap: course code in an action request
+  question: Register me in CPSC 330 section 101.

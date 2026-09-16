@@ -1,4 +1,4 @@
-.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli fetch-policy chunk embed search eval-retrieval rebuild-edges
+.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli fetch-policy chunk embed search eval-retrieval rebuild-edges ask eval-routing
 
 up:            ## start the stack (foreground)
 	docker compose up --build
@@ -56,3 +56,9 @@ eval-retrieval: ## recall@k for policy retrieval, vector vs hybrid
 
 rebuild-edges: ## regenerate prereq_edges from stored trees: make rebuild-edges ARGS="--dry-run"
 	docker compose exec app python -m ingest.rebuild_edges $(ARGS)
+
+ask:           ## ask in plain English: make ask Q="can I retake a course?" ARGS="--route-only"
+	docker compose exec app python -m agent $(ARGS) "$(Q)"
+
+eval-routing:  ## routing accuracy: make eval-routing ARGS="--runs 2"
+	docker compose exec app python -m eval.run_routing_eval $(ARGS)

@@ -63,10 +63,12 @@ def test_urls():
     assert course_url("CPSC 221").endswith("/courses/cpscv-221")
     assert course_url("MATH 100A").endswith("/courses/mathv-100a")
 
+
 def test_high_school_codes_are_out_of_scope():
     assert not is_in_scope("PHYS 12")
     assert not is_in_scope("MATH 12")
     assert is_in_scope("PHYS 101")
+
 
 def test_is_secondary_school():
     from core.codes import is_secondary_school
@@ -74,3 +76,12 @@ def test_is_secondary_school():
     assert is_secondary_school("BIOL 11")
     assert not is_secondary_school("CPSC 110")
     assert not is_secondary_school("MATH 100A")
+
+
+def test_find_codes():
+    from core.codes import find_codes
+    assert find_codes("Can I take cpsc 320 after CPSC_V 221?") == ["CPSC 320", "CPSC 221"]
+    assert find_codes("Does COMM 337 count? And comm 337 again") == ["COMM 337"]
+    assert find_codes("take 300-level courses") == []
+    assert find_codes("MATH_O 220 or MATH 100A") == ["MATH 100A"]
+    assert find_codes("can I take 320?") == []

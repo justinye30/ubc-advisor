@@ -314,3 +314,66 @@ Running log of choices made and why. Newest at the bottom.
   optional (88%). No single-child ONE_OFs, so the ratio reflects the
   calendar's "one of" lists, not an extraction artifact. The flattening fix
   changed 0 edges (preventive).
+
+## Router (Week 2)
+
+- **Classification is a separate call from answering.** A misroute surfaces as
+  a visible routing error, not a fluent wrong answer.
+- **Model: claude-haiku-4-5-20251001 with structured output** (JSON schema,
+  enum-constrained intent). Pinned dated model so eval results stay
+  comparable. The pinned SDK exposes no temperature parameter, so stability
+  is measured (`--runs 2`) rather than assumed.
+- **Five intents: eligibility, policy, path, unlock, out_of_scope.** Boundary
+  rule: classify by the kind of answer needed, not by whether a course code
+  appears. Out-of-scope carries a scope reason (advice, course_content,
+  registration, personal_record, other_institution, unrelated), each with a
+  fixed refusal template — refusals are designed, not generated.
+- **Known gaps:** "what is CPSC X about" routes out of scope (descriptions
+  exist in `courses` but have no handler yet); mixed-intent questions get one
+  route.
+- **`agent/` holds everything that calls an LLM; `core/` never does.** The
+  eligibility rule is enforced by package boundaries.
+- **LangGraph StateGraph:** classify → conditional edge → one node per intent,
+  plus a `failed` node for RouteError/API errors. Unexpected exceptions still
+  raise. Classifier and handlers are injectable for tests.
+- **Handlers return structured facts with source URLs, never prose.** Until
+  Step 13 they use only full course codes and no transcript, and say so
+  (`needs_course`, `requirements_only`).
+- **Every question is logged** to query_logs (route, status, latency,
+  citations); logging failures never break an answer.
+- **PROMPT_VERSION** hashes model + prompt + schema; saved with every eval run.
+- **Routing eval: 40 questions, 8 per intent, 8 traps.** Baseline (prompt
+  ______): accuracy __%, pulled into eligibility __, refusal recall __%,
+  false refusals __, scope reason __%, traps __/8, unstable across 2 runs __.
+
+- **Prompt examples never overlap the eval set.** The first draft reused most
+  eval questions as prompt examples, which would have measured recall of the
+  examples, not routing. Rewritten before any measurement (prompt d3b7ce465d →
+  ec765835e8); a test fails if prompt and eval share course codes.
+
+- **Routing baseline (prompt 78d3de4c68):** accuracy 85–88% across runs;
+  eligibility/unlock/out_of_scope recall 100%, path 88–100%, **policy 25–50%**;
+  pulled into eligibility 0–1; refusal recall 100%; **false refusals 4–6**;
+  6 of 40 questions unstable across 2 runs (all policy, plus path-before).
+  The predicted failure (code-bearing questions pulled into eligibility)
+  barely occurred; the real failure was the opposite — over-refusing policy.
+- **Diagnosis:** rationales named the question "a policy question" and then
+  chose out_of_scope. Causes: policy was the only intent without examples;
+  "standing"/"registration" appeared in both policy and out-of-scope reasons;
+  out_of_scope was framed as "everything else."
+- **Fix:** policy examples on topics the eval doesn't test, explicit
+  boundaries on the colliding scope reasons, out_of_scope as last resort
+  (rule 0). Prompt → ______.
+- **The 40-question set is now a dev set.** A 12-question holdout
+  (`routing_holdout.yaml`) was written before measuring the fix and is not
+  to be tuned on. Results: dev ___, holdout ___.
+- **path-before left as a known ambiguous boundary** ("what do I need before
+  X" reads as either direct prerequisites or a chain); not tuned for.
+
+- **Fix:** ... Prompt → f8112e3097.
+- **Results (f8112e3097):** dev 98% (39/40; policy 100%, false refusals 0,
+  refusal recall 100%, traps 8/8, 1 unstable — path-before); holdout 100%
+  (12/12, policy 6/6, traps 3/3, stable across 3 runs). The only remaining
+  miss is the known-ambiguous path-before, left untuned.
+- **Both routing sets are now spent for tuning.** Further prompt changes
+  need fresh questions; Step 16 is the held-out measurement.
