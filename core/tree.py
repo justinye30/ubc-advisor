@@ -128,23 +128,30 @@ def edges(node: dict) -> list[tuple[str, bool]]:
     is_optional is True when the course sits under any ONE_OF, meaning
     alternatives exist. Without this a graph view would wrongly imply
     every listed course is required.
+
+    A code can appear more than once in a tree. It is optional only if
+    EVERY occurrence is optional: one occurrence on an all-mandatory path
+    makes it mandatory, whatever else the tree says about it.
     """
-    out: list[tuple[str, bool]] = []
+    optional_by_code: dict[str, bool] = {}
+
+    def add(code: str, optional: bool) -> None:
+        optional_by_code[code] = optional_by_code.get(code, True) and optional
 
     def visit(n: dict, optional: bool) -> None:
         op = n["op"]
         if op == "COURSE":
-            out.append((n["code"], optional))
+            add(n["code"], optional)
         elif op == "MIN_CREDITS":
             for code in n.get("from", {}).get("courses", []):
-                out.append((code, True))
+                add(code, True)
         for child in n.get("children", []):
             visit(child, optional or op == "ONE_OF")
         if "child" in n:
             visit(n["child"], optional)
 
     visit(node, False)
-    return out
+    return list(optional_by_code.items())
 
 def canonical(node: dict) -> tuple:
     """A hashable, order-insensitive form of a tree.

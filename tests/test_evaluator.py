@@ -13,9 +13,6 @@ PERMISSION = {"op": "PERMISSION", "note": "permission of the department"}
 def st(spec="", year=None, programs=None):
     return Transcript.parse(spec, year=year, programs=programs)
 
-
-# ---------- leaves ----------
-
 def test_course_present():
     assert evaluate(C("CPSC 110"), st("CPSC 110")).state is SATISFIED
 
@@ -29,9 +26,6 @@ def test_permission_is_always_indeterminate():
 
 def test_unparsed_is_always_indeterminate():
     assert evaluate(UNPARSED, st("CPSC 110")).state is INDETERMINATE
-
-
-# ---------- ALL_OF ----------
 
 def test_all_of_every_child_satisfied():
     tree = {"op": "ALL_OF", "children": [C("CPSC 110"), C("CPSC 121")]}
@@ -50,9 +44,6 @@ def test_all_of_uncertainty_propagates():
     tree = {"op": "ALL_OF", "children": [C("CPSC 110"), PERMISSION]}
     assert evaluate(tree, st("CPSC 110")).state is INDETERMINATE
 
-
-# ---------- ONE_OF ----------
-
 def test_one_of_any_satisfied():
     tree = {"op": "ONE_OF", "children": [C("CPSC 110"), C("CPSC 121")]}
     assert evaluate(tree, st("CPSC 121")).state is SATISFIED
@@ -69,9 +60,6 @@ def test_one_of_unknown_survives_when_nothing_satisfies():
 def test_one_of_all_absent():
     tree = {"op": "ONE_OF", "children": [C("CPSC 998"), C("CPSC 999")]}
     assert evaluate(tree, st("CPSC 110")).state is NOT_SATISFIED
-
-
-# ---------- MIN_GRADE ----------
 
 def test_min_grade_met():
     tree = {"op": "MIN_GRADE", "percent": 68, "child": C("MATH 226")}
@@ -96,9 +84,6 @@ def test_min_grade_distributes_over_one_of():
     assert evaluate(tree, st("STAT 302:70")).state is SATISFIED
     assert evaluate(tree, st("STAT 302:60")).state is NOT_SATISFIED
 
-
-# ---------- STANDING / PROGRAM ----------
-
 def test_standing_met_and_exceeded():
     tree = {"op": "STANDING", "year": 3}
     assert evaluate(tree, st(year=3)).state is SATISFIED
@@ -117,9 +102,6 @@ def test_program_match_is_case_insensitive():
 def test_program_unknown():
     assert evaluate({"op": "PROGRAM", "name": "Statistics"}, st()).state is INDETERMINATE
 
-
-# ---------- untracked courses ----------
-
 def test_untracked_course_accepted_when_reported():
     tree = {"op": "COURSE", "code": "PSYC 218", "tracked": False}
     assert evaluate(tree, st("PSYC 218")).state is SATISFIED
@@ -129,8 +111,14 @@ def test_untracked_course_absent_is_indeterminate():
     tree = {"op": "COURSE", "code": "PSYC 218", "tracked": False}
     assert evaluate(tree, st("CPSC 110")).state is INDETERMINATE
 
+def test_high_school_course_is_indeterminate_with_its_own_reason():
+    r = evaluate({"op": "COURSE", "code": "PREC 12", "tracked": False}, st("CPSC 110"))
+    assert r.state is INDETERMINATE
+    assert "high-school" in r.headline
 
-# ---------- real trees ----------
+def test_other_untracked_course_keeps_generic_reason():
+    r = evaluate({"op": "COURSE", "code": "AI 240", "tracked": False}, st("CPSC 110"))
+    assert "outside our course data" in r.headline
 
 def test_cpsc_221_via_grade_branch():
     tree = {"op": "ALL_OF", "children": [
@@ -146,8 +134,19 @@ def test_cpsc_221_via_grade_branch():
     assert evaluate(tree, st("CPSC 210, MATH 226:61")).state is INDETERMINATE
     assert evaluate(tree, st("CPSC 210, CPSC 121")).state is SATISFIED
 
-
 def test_trace_names_the_failing_node():
     tree = {"op": "ALL_OF", "children": [C("CPSC 110"), C("CPSC 121")]}
     result = evaluate(tree, st("CPSC 110"))
     assert any("CPSC 121" in r.text for r in result.reasons)
+
+def test_summary_leads_with_the_definite_gap():
+    tree = {"op": "ONE_OF", "children": [
+        C("MATH 200"), {"op": "OUT_OF_SCOPE", "code": "MATH_O 200", "reason": "okanagan"}]}
+    r = evaluate(tree, st("CPSC 110"))
+    assert r.state is INDETERMINATE
+    assert r.headline.startswith("MATH_O 200")
+    assert r.summary.startswith("MATH 200: not completed")
+
+def test_summary_is_headline_when_nothing_is_definitely_missing():
+    r = evaluate({"op": "STANDING", "year": 3}, st("CPSC 110"))
+    assert r.summary == r.headline

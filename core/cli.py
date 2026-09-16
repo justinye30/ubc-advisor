@@ -1,11 +1,12 @@
 """Command-line interface for prerequisite checking.
 
-  check  — can I take one course, and if not, what's missing
-  sweep  — what am I eligible for
+  check    — can I take one course, and if not, what's missing
+  sweep    — what am I eligible for
+  unlocks  — what does a course lead to
+  path     — what lies between me and a course
 
-This is presentation only. All logic lives in core.evaluator.
+This is presentation only. All logic lives in core.evaluator and core.graph.
 """
-
 import argparse
 import sys
 
@@ -13,6 +14,7 @@ from core.codes import OutOfScope, course_url, normalize
 from core.evaluator import INDETERMINATE, NOT_SATISFIED, SATISFIED, evaluate
 from core.repo import Course, get_course, list_courses, suggest_codes
 from core.transcript import Transcript
+from core.graph import PathView, always_required, ancestry, connect, dependents, unlocks_for
 
 DISCLAIMER = (
     "Unofficial. Prerequisites may be waived at instructor discretion; the "
@@ -158,7 +160,9 @@ def cmd_sweep(args) -> int:
         print(f"\n{heading} ({len(items)})")
         print("-" * 74)
         for course, result in items:
-            row(MARK[state], course, result.headline if show_reason else "")
+            row(MARK[state], course)
+            if show_reason:
+                print(wrap(result.summary, indent="               "))
 
     print()
     section(SATISFIED, "ELIGIBLE — prerequisites checked and met", False)
@@ -185,6 +189,131 @@ def cmd_sweep(args) -> int:
         print(f"{skipped} course(s) skipped — requirements not parsed.")
     if not args.all:
         print("Use --all to include courses you're not eligible for.")
+    print()
+    print(wrap(DISCLAIMER))
+    return 0
+
+
+# ---------------------------------------------------------------- unlocks
+
+def cmd_unlocks(args) -> int:
+    code = resolve(args.course)
+    course = get_course(code)
+    if course is None:
+        sys.exit(f"{code} isn't in my data.")
+
+    with connect() as conn:
+        deps = dependents(conn, code)
+
+    print()
+    title = f"What {code} leads to" + (f" — {course.title}" if course.title else "")
+    print(title)
+    print("=" * min(len(title), 74))
+
+    if not deps:
+        print(f"\n  No course in my data lists {code} as a prerequisite.\n")
+        print(wrap(DISCLAIMER))
+        return 0
+
+    def row(mark: str, code_: str, title_: str | None, reason: str = "") -> None:
+        line = f"  {mark} {code_:<10} {(title_ or '')[:34]:<36}{reason[:26]}"
+        print(line.rstrip())
+
+    if not args.have:
+        required = [d for d in deps if not d.is_optional]
+        optional = [d for d in deps if d.is_optional]
+        if required:
+            print(f"\nREQUIRES {code} ({len(required)})")
+            print("-" * 74)
+            for d in required:
+                row("·", d.code, d.title)
+        if optional:
+            print(f"\n{code} IS ONE OPTION ({len(optional)})")
+            print("-" * 74)
+            print("  Another course could satisfy the same requirement.")
+            for d in optional:
+                row("·", d.code, d.title)
+        print(f"\nAdd --have to see what {code} would open up for you specifically.\n")
+        print(wrap(DISCLAIMER))
+        return 0
+
+    t = build_transcript(args)
+    u = unlocks_for(code, t, deps)
+
+    def section(items, mark: str, heading: str) -> None:
+        if not items:
+            return
+        print(f"\n{heading} ({len(items)})")
+        print("-" * 74)
+        for d, result in items:
+            row(mark, d.code, d.title)
+            if mark != "✓":
+                print(wrap(result.summary, indent="               "))
+
+    if code in t.completed:
+        print(f"\n  You've already completed {code}; showing what it counts toward.")
+    section(u.newly_eligible, "✓", f"NEWLY ELIGIBLE after {code}")
+    section(u.to_confirm, "?", f"AFTER {code}, NEEDS CONFIRMATION")
+    if args.all:
+        section(u.still_blocked, "✗", f"STILL BLOCKED after {code}")
+
+    print(f"\n{len(u.newly_eligible)} newly eligible, {len(u.to_confirm)} to confirm, "
+          f"{len(u.still_blocked)} still blocked, "
+          f"{len(u.already_eligible)} you can already take")
+    if not args.all and u.still_blocked:
+        print("Use --all to see what else each blocked course needs.")
+    print()
+    print(wrap(DISCLAIMER))
+    return 0
+
+
+# ---------------------------------------------------------------- path
+
+def cmd_path(args) -> int:
+    code = resolve(args.want)
+    course = get_course(code)
+    if course is None:
+        sys.exit(f"{code} isn't in my data.")
+
+    t = build_transcript(args)
+    with connect() as conn:
+        rows = ancestry(conn, code, stop_at=t.completed)
+
+    print()
+    title = f"Path to {code}" + (f" — {course.title}" if course.title else "")
+    print(title)
+    print("=" * min(len(title), 74))
+
+    if course.prereq_tree is not None:
+        result = evaluate(course.prereq_tree, t)
+        print(f"\n  Right now: {MARK[result.state]} {VERDICT[result.state]}")
+
+    if not rows:
+        if course.extraction_status == "no_prereq":
+            print("\n  No prerequisites listed.")
+        else:
+            print(f"\n  No course prerequisites in my data (status: {course.extraction_status}).")
+        print()
+        print(wrap(DISCLAIMER))
+        return 0
+
+    view = PathView(code, course.prereq_tree, rows, t)
+    print(f"\n  {code}")
+    for line in view.render():
+        print(f"  {line}")
+
+    todo = [c for c in always_required(code, rows, stop_at=t.completed | view.ready())
+            if c not in t.completed]
+    print("\n  ✓ completed   → ready to take   · not yet   ? can't check from our data")
+    print("  Only what still stands between you and the course is shown.")
+    if view.hidden_okanagan:
+        print(f"  {view.hidden_okanagan} Okanagan alternative(s) not shown.")
+    if todo:
+        print(f"\n  Required on every route: {', '.join(todo)}")
+    else:
+        print("\n  Nothing here is required on every route — each step has alternatives.")
+    print("  'option' means another course can satisfy the same requirement.")
+    print(f"  Run `check --want \"{code}\"` for the exact rule, including grades.")
     print()
     print(wrap(DISCLAIMER))
     return 0
@@ -217,6 +346,17 @@ def main() -> int:
     s.add_argument("--all", action="store_true", help="include ineligible courses")
     s.add_argument("--graduate", action="store_true", help="include 500-level graduate courses")
     s.set_defaults(func=cmd_sweep)
+
+    u = sub.add_parser("unlocks", help="what a course leads to")
+    shared(u)
+    u.add_argument("course", help="e.g. 'CPSC 221'")
+    u.add_argument("--all", action="store_true", help="include courses still blocked")
+    u.set_defaults(func=cmd_unlocks)
+
+    p = sub.add_parser("path", help="what lies between you and a course")
+    shared(p)
+    p.add_argument("--want", required=True, help="target course, e.g. 'CPSC 404'")
+    p.set_defaults(func=cmd_path)
 
     args = ap.parse_args()
     return args.func(args)

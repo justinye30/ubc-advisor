@@ -1,4 +1,4 @@
-.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli fetch-policy chunk embed search eval-retrieval
+.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli fetch-policy chunk embed search eval-retrieval rebuild-edges
 
 up:            ## start the stack (foreground)
 	docker compose up --build
@@ -53,3 +53,6 @@ search:         ## search policy text: make search Q="can I retake a course" ARG
 
 eval-retrieval: ## recall@k for policy retrieval, vector vs hybrid
 	docker compose exec app python -m eval.run_retrieval_eval $(ARGS)
+
+rebuild-edges: ## regenerate prereq_edges from stored trees: make rebuild-edges ARGS="--dry-run"
+	docker compose exec app python -m ingest.rebuild_edges $(ARGS)

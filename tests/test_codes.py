@@ -67,3 +67,10 @@ def test_high_school_codes_are_out_of_scope():
     assert not is_in_scope("PHYS 12")
     assert not is_in_scope("MATH 12")
     assert is_in_scope("PHYS 101")
+
+def test_is_secondary_school():
+    from core.codes import is_secondary_school
+    assert is_secondary_school("PREC 12")
+    assert is_secondary_school("BIOL 11")
+    assert not is_secondary_school("CPSC 110")
+    assert not is_secondary_school("MATH 100A")

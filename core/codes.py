@@ -19,6 +19,9 @@ IN_SCOPE_SUBJECTS = frozenset(
     {"CPSC", "MATH", "STAT", "DSCI", "CPEN", "PHYS", "ENGL", "WRDS", "SCIE"}
 )
 
+KNOWN_RETIRED = frozenset(
+    {"CPEN 322", "CPSC 261", "ENGL 112", "PHYS 257", "PHYS 313", "SCIE 120", "STAT 241"}
+)
 
 class OutOfScope(Exception):
     """Raised for codes that are valid but outside this project's scope."""
@@ -62,6 +65,12 @@ def is_in_scope(code: str) -> bool:
         return False
     subject, number = parts
     return subject in IN_SCOPE_SUBJECTS and len(number.rstrip("ABCDEFGH")) == 3
+
+
+def is_secondary_school(code: str) -> bool:
+    """True for BC high-school courses written like codes: 'PHYS 12', 'PREC 11'."""
+    parts = code.split()
+    return len(parts) == 2 and parts[0].isalpha() and parts[1] in {"10", "11", "12"}
 
 
 def subject_index_url(subject: str) -> str:

@@ -271,3 +271,46 @@ Running log of choices made and why. Newest at the bottom.
   `letter-of-permission` ranks general Transfer Credit first, which is a
   genuinely ambiguous reading of "transfer back." Both are cases for the
   Step 14 composer: two plausible chunks, one right answer.
+
+## Graph queries
+
+- **The graph narrows; the evaluator decides.** prereq_edges flattens trees
+  and loses which alternatives go together, so it's used to find candidates
+  (reverse lookups) and draw structure. "Can this student take X" is always
+  evaluate() on the full tree. `unlocks --have` re-evaluates each dependent
+  with and without the course, so a grade threshold on the new course lands
+  in "needs confirmation" rather than "unlocked."
+- **Fixed edge flattening: a code is optional only if every occurrence is.**
+  The old edges() + ON CONFLICT DO NOTHING kept whichever occurrence came
+  first, so ALL_OF(ONE_OF(A,B), A) stored A as optional. Rebuilt edges from
+  stored trees (no LLM call): +__ / -__ edges changed on real data.
+- **Edges are derived data.** `ingest.rebuild_edges` regenerates them from
+  prereq_tree deterministically, reports the diff, dead-end codes (__),
+  self-references, and 2-cycles.
+- **Transitive walk uses UNION, not UNION ALL + path array.** UNION
+  deduplicates as it recurses, so work is bounded by distinct edges and
+  cycles terminate naturally. On a synthetic 8-level graph (20 courses per
+  level, 3 prereqs each) the path-array version produced 3,279 rows for 252
+  edges (12 ms, growing ~3x per level); UNION produced 253 in 2 ms with a
+  cycle added.
+- **"Required" is transitive only through required edges.** One optional
+  hop breaks the chain. `path` lists alternatives without choosing between
+  them — picking a route is advice, not lookup.
+- **Walk stops beneath completed courses.** Their prerequisites no longer
+  matter to the student.
+- **Known gaps:** no coreq edges (coreq_tree never extracted); credit
+  exclusions not applied; graph completeness is capped by extraction
+  (flagged courses are marked in `path` output).
+
+- **Dead ends in the graph (98 codes referenced but not in `courses`):**
+  81 out-of-scope subjects (expected); 10 BC high-school courses (PREC 12,
+  PHYS 12, …) that already evaluate as INDETERMINATE via is_in_scope's
+  three-digit rule, now with their own reason text; 7 in-scope codes
+  (CPEN 322, CPSC 261, ENGL 112, PHYS 257, PHYS 313, SCIE 120, STAT 241)
+  verified by hand as retired and recorded in `KNOWN_RETIRED`.
+  rebuild_edges warns on any in-scope dead end not in that set — the
+  signal for a parser gap.
+- **Edge optionality on real data:** 1,320 edges, 159 required / 1,161
+  optional (88%). No single-child ONE_OFs, so the ratio reflects the
+  calendar's "one of" lists, not an extraction artifact. The flattening fix
+  changed 0 edges (preventive).

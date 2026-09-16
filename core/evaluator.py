@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from core.transcript import Transcript
+from core.codes import is_secondary_school
 
 
 class State(Enum):
@@ -44,6 +45,20 @@ class Result:
     def blocking(self) -> list[str]:
         """Every reason whose state matches the verdict."""
         return [r.text for r in self.reasons if r.state is self.state]
+
+    @property
+    def summary(self) -> str:
+        """One line for tables.
+
+        An INDETERMINATE verdict can hide a definite gap: in "one of MATH 200
+        or MATH_O 200", the Vancouver course is simply missing and only the
+        Okanagan alternative is unknowable. Lead with the definite part.
+        """
+        if self.state is INDETERMINATE:
+            missing = [r.text for r in self.reasons if r.state is NOT_SATISFIED]
+            if missing:
+                return f"{missing[0]}, or an alternative we can't verify"
+        return self.headline
 
     @property
     def headline(self) -> str:
@@ -98,9 +113,12 @@ def evaluate(node: dict, t: Transcript) -> Result:
                           [Reason(NOT_SATISFIED, f"{code}: not completed")],
                           unmet=[code])
         # We do not hold this course, so absence is not evidence of absence.
+        why = ("BC high-school course — confirm you have it"
+               if is_secondary_school(code)
+               else "outside our course data — confirm yourself")
         return Result(
             INDETERMINATE,
-            [Reason(INDETERMINATE, f"{code}: outside our course data — confirm yourself")],
+            [Reason(INDETERMINATE, f"{code}: {why}")],
             unknown=[code],
         )
 
