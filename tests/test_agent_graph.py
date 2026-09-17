@@ -154,9 +154,10 @@ def test_extract_node_fills_a_missing_target_from_the_question():
 
 
 @pytest.mark.parametrize("intent", INTENTS)
-def test_every_branch_ends_in_compose(intent):
+def test_every_branch_ends_in_compose_then_guard(intent):
     state = app(intent).invoke({"question": "q"})
     assert state["answer"]["text"] == f"answer for {state['result']['kind']}"
+    assert state["answer"].get("guard", {}).get("action") == "not needed"
 
 
 def test_failures_and_clarifications_are_composed_too():

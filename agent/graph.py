@@ -3,14 +3,14 @@
     START → classify ─┬─ policy ───────────────────┐
                       ├─ out_of_scope ─────────────┤
                       ├─ extract ─┬─ eligibility ──┤
-                      │           ├─ path ─────────┼→ compose → END
+                      │           ├─ path ─────────┼→ compose → guard → END
                       │           ├─ unlock ───────┤
                       │           └─ clarify ──────┤
                       └─ failed ───────────────────┘
 
 Only intents that need courses or a transcript pay for extraction. Every
-branch ends in `compose`, which uses a template when no model is needed.
-Step 15 adds the citation guard after it.
+branch ends in `compose`, which uses a template when no model is needed, and
+`guard`, which checks each sentence against the facts before anything ships.
 """
 
 import json
@@ -26,6 +26,7 @@ from langgraph.graph import END, START, StateGraph
 
 from agent.composer import Answer, compose
 from agent.entities import Entities, EntityError, extract, fill_missing_target
+from agent.guard import guard
 from agent.handlers import HANDLERS, clarify, failed
 from agent.router import INTENTS, Route, RouteError, classify
 
@@ -63,7 +64,8 @@ def after_extract(state: AdvisorState) -> str:
 def build_graph(classify_fn: Callable[[str], Route] = classify,
                 handlers: dict | None = None,
                 extract_fn: Callable[[str], Entities] = extract,
-                compose_fn: Callable[[str, dict], Answer] = compose):
+                compose_fn: Callable[..., Answer] = compose,
+                guard_fn: Callable[..., Answer] = guard):
     handlers = handlers or HANDLERS
     missing = set(INTENTS) - set(handlers)
     if missing:
@@ -87,11 +89,19 @@ def build_graph(classify_fn: Callable[[str], Route] = classify,
     def compose_node(state: AdvisorState) -> dict:
         return {"answer": compose_fn(state["question"], state.get("result", {}))}
 
+    def guard_node(state: AdvisorState) -> dict:
+        answer = state.get("answer")
+        if answer is None:
+            return {}
+        return {"answer": guard_fn(state["question"], state.get("result", {}), answer, compose_fn)}
+
     g = StateGraph(AdvisorState)
     g.add_node("classify", classify_node)
     g.add_node("extract", extract_node)
     g.add_node("compose", compose_node)
-    g.add_edge("compose", END)
+    g.add_node("guard", guard_node)
+    g.add_edge("compose", "guard")
+    g.add_edge("guard", END)
     for intent in INTENTS:
         g.add_node(intent, handlers[intent])
         g.add_edge(intent, "compose")

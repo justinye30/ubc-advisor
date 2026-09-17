@@ -71,11 +71,11 @@ def _unknowns(verdict: str | None, reasons: list[dict]) -> list[str]:
 
 def _source(facts: Facts, label: str, url: str, body: str | None) -> str:
     sid = f"S{len(facts.sources) + 1}"
-    facts.sources.append({"id": sid, "label": label, "url": url})
-    facts.ids.add(sid)
     text = (body or "").strip()
     if len(text) > MAX_SOURCE_CHARS:
         text = text[:MAX_SOURCE_CHARS] + " …"
+    facts.sources.append({"id": sid, "label": label, "url": url, "text": text})
+    facts.ids.add(sid)
     return f"[{sid}] {label}\n{text}" if text else f"[{sid}] {label}"
 
 
@@ -317,7 +317,8 @@ def render(lead: list[str], body: list[Sentence], facts: Facts) -> tuple[str, li
         text = s.text.strip()
         pieces.append(f"{text} {''.join(marks)}".rstrip() if marks else text)
 
-    used = [{"n": n, **by_id[cid]} for cid, n in numbers.items()]
+    used = [{"n": n, "id": cid, "label": by_id[cid]["label"], "url": by_id[cid]["url"]}
+            for cid, n in numbers.items()]
     text = " ".join(p for p in pieces if p)
     if used:
         text += "\n\nSources:\n" + "\n".join(f"[{u['n']}] {u['label']} — {u['url']}" for u in used)

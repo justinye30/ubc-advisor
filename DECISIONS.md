@@ -506,3 +506,74 @@ Running log of choices made and why. Newest at the bottom.
   against structured facts (readiness lists), treat hedges/negations/partial
   claims as non-claims, judge advice wording against the cited source's
   text, and fix the ambiguous tree label.
+
+  ## Citation guard (Week 2)
+
+- **Designed from Step 14's classified flags.** Phrase matching was too noisy
+  to enforce: negations, hedges and partial claims aren't eligibility claims;
+  calendar wording in a cited source isn't the assistant's advice; and the one
+  real error ("CPEN 212 … you can take immediately") needed the structured
+  ready-now list to refute.
+- **Claims are checked clause by clause** (dashes, semicolons, contrast words,
+  relative clauses); "both of which…" borrows the listed courses, not the
+  target.
+- **Checked against structured truth:** target, verdicts, the student's
+  history, and which courses may be called takeable (path ready-now;
+  personal-unlock newly/already eligible; sweep eligible/no-prereq;
+  satisfied targets; nothing for a history-less unlock).
+- **Violation kinds:** invented code/number/remedy, ungrounded advice
+  (allowed only when the cited source says it), contradicts verdict, not
+  ready, invented history, contradicts history.
+- **Codes/numbers are grounded against all facts; advice against the cited
+  source only** — citations are sometimes loose, but for advice the citation
+  is the justification.
+- **Enforcement:** regenerate once with the violations explained; otherwise
+  trim offending sentences from the better attempt; otherwise the template
+  explanation. Every answer records the action and what was caught.
+- **Fixed the label behind the real error:** "(not needed now: another option
+  is ready)", with the facts legend saying the course is neither ready nor
+  required.
+- **The eight Step 14 sentences are regression tests:** the guard flags
+  exactly the one real error.
+- **Results:** rescored Step 14 baseline: __ of __ sentences flagged (all
+  real? __). Guarded, 3 runs × 15 cases: passed __ / regenerated __ /
+  trimmed __ / fallback __; caught __ (by kind: __); left after guard 0.
+
+- **First rescore of the Step 14 baseline:** 4 of 130 sentences flagged —
+  2 real (CPEN 212 "can take immediately"; "you can take CPSC 221, DSCI 221"
+  to a student with no history) and 2 false positives ("you meet the first
+  prerequisite" — a partial claim; "the calendar requires CPSC 121, MATH 220
+  … and you completed CPSC 210" — history applied to every code in the
+  clause).
+- **Fixes:** ordinals/quantifiers after the verb mark partial claims ("all"
+  stays full); history and availability claims apply only to the verb's
+  courses (after it; before it for "open to you"/"that you can take";
+  borrowed for "both of which"); "unlike / rather than / instead of" split
+  clauses. All four sentences are regression tests. Rescore after fixes:
+  2 of 130, both real.
+
+- **Rescore after fixes:** 2 of 130 baseline sentences flagged, both real —
+  the "before": 2 of 45 Step 14 answers would have shipped an error.
+- **Guarded eval (2 × 3 runs × 15 cases = 90 answers):** passed on first
+  draft 82/90; regenerated 4; trimmed 4; fallback 0. Draft sentences caught:
+  6 and 3 (kinds: contradicts verdict, contradicts history, invented
+  history, invented remedy, not ready). **Violations shipped: 0.**
+- **Precision on unseen flags (run B):** __ real / __ false positive.
+- **Cost:** one extra composer call on ~9% of answers.
+
+- **Guarded eval, flags read by hand (run B):** 1 real ("You cannot take
+  CPSC 221" under a can't-tell verdict — regenerated cleanly) and 2 false
+  positives, both from back-references borrowing too much: "which is not
+  among the courses you've completed" took all five courses in the clause
+  (and ignored "not"); "both of which you're ready to take" took CPSC 304
+  along with CPSC 221/DSCI 221. The second trimmed a true, useful sentence
+  from a shipped answer.
+- **Fix:** back-references borrow only the trailing list of the previous
+  clause; negated clauses make no positive history claim. All three
+  sentences are regression tests.
+- **Across all 15 hand-read flags, the guard now marks exactly the real
+  problems** — but those flags informed the rules, so precision on unseen
+  flags is still unmeasured (Step 16).
+- **Summary:** 90 guarded answers, 0 violations shipped; the guard acted on
+  ~9%; before the guard, 2 of 45 Step 14 answers would have shipped a
+  factual error.

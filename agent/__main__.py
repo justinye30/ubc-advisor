@@ -143,6 +143,10 @@ def main() -> int:
                 print(f"  problem:     {p}")
             for s in answer["sentences"]:
                 print(f"    [{', '.join(s['cites'])}] {s['text']}")
+            g = answer.get("guard", {})
+            print(f"  guard:       {g.get('action', 'not run')}")
+            for v in g.get("violations", []):
+                print(f"    caught:    sentence {v}")
         print("\n" + "-" * 76)
 
     if answer:

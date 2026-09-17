@@ -12,7 +12,7 @@ Nothing here checks *what* the sentences claim — that's Step 15.
 
 import json
 import os
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 import anthropic
 
@@ -40,6 +40,7 @@ class Answer(TypedDict):
     composed_by: str                # template | llm | fallback
     problems: list[str]             # why the LLM output was rejected, if it was
     facts: str                      # what the model saw (kept for the guard and the eval)
+    guard: NotRequired[dict]        # set by agent.guard: action, violations, remaining
 
 
 class ComposeError(RuntimeError):
@@ -178,7 +179,10 @@ def _answer(lead: list[str], body: list[Sentence], facts: Facts,
                   sources=used, composed_by=composed_by, problems=problems, facts=facts.text)
 
 
-def compose(question: str, result: dict, client=None) -> Answer:
+def compose(question: str, result: dict, client=None,
+            feedback: list[str] | None = None, previous: Answer | None = None) -> Answer:
+    """Compose an answer. With `feedback` and `previous`, the first attempt is a
+    revision: the model sees its earlier sentences and what was wrong with them."""
     facts = build_facts(question, result)
     lead = headline(result)
 
@@ -186,18 +190,18 @@ def compose(question: str, result: dict, client=None) -> Answer:
         return _answer(lead, template_answer(result), facts, "template", [])
 
     problems: list[str] = []
-    feedback: list[str] = []
-    previous: str | None = None
+    notes = list(feedback or [])
+    last = json.dumps({"sentences": previous["sentences"]}) if previous and notes else None
     for _ in range(ATTEMPTS):
         try:
-            body, previous = _ask_model(client or _default_client(), facts, lead, previous, feedback)
+            body, last = _ask_model(client or _default_client(), facts, lead, last, notes)
         except (ComposeError, anthropic.APIError) as exc:
             problems.append(str(exc))
-            previous, feedback = None, []
+            last, notes = None, []
             continue
-        feedback = structural_problems(body, facts)
-        if not feedback:
+        notes = structural_problems(body, facts)
+        if not notes:
             return _answer(lead, body, facts, "llm", problems)
-        problems += feedback
+        problems += notes
 
     return _answer(lead, plain_answer(result, facts), facts, "fallback", problems)

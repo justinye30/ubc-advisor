@@ -229,7 +229,7 @@ def test_path_does_not_explore_options_when_a_sibling_is_ready():
             E("T", "D", optional=True, tree=ALL(C("DEEP"))), E("D", "DEEP")]
     _, text = draw(ONE(C("R"), C("D")), rows)
     assert "→ R" in text
-    assert "another option is ready" in text
+    assert "(not needed now: another option is ready)" in text
     assert "DEEP" not in text
 
 

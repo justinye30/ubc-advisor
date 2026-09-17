@@ -1,11 +1,14 @@
-"""Measure the composer on fixed handler results.
+"""Measure the composer and the citation guard on fixed handler results.
 
 Bypasses routing and extraction: each case builds its entities directly and
 runs the real handler, so every answer is composed from real calendar data.
-Reports how each answer was produced and how far it drifted from its facts.
-Nothing is scored by a model; read the answers with --show.
+For each answer: what the guard found in the first draft, what it did
+(passed / regenerated / trimmed / fallback), and a final re-check that must
+come back clean. Nothing is scored by a model; read the answers with --show.
 
 Run:  python -m eval.run_composer_eval [--show] [--runs 3] [--save PATH]
+      python -m eval.run_composer_eval --rescore eval/results/composer_baseline.json
+          # apply today's guard checks to saved answers — no API calls
 """
 
 import argparse
@@ -18,10 +21,11 @@ from pathlib import Path
 import yaml
 from dotenv import load_dotenv
 
-from agent.checks import drift
-from agent.composer import COMPOSER_MODEL, compose
+from agent.composer import COMPOSER_MODEL, Answer, compose
 from agent.entities import Entities, catalogue
+from agent.guard import check_answer, guard, violation_kind
 from agent.handlers import HANDLERS
+from agent.present import build_facts
 from agent.router import Route
 from core.transcript import Transcript
 
@@ -56,11 +60,54 @@ def check_cases(cases: list[dict], cat: set[str]) -> list[str]:
     return bad
 
 
+def result_for(case: dict) -> dict:
+    state = {"question": case["question"],
+             "route": Route(intent=case["intent"], scope_reason="none", rationale="eval"),
+             "entities": entities_for(case)}
+    return HANDLERS[case["intent"]](state)["result"]
+
+
+def show_answer(tag: str, answer: Answer, caught: dict[int, list[str]]) -> None:
+    print(f"  ── {tag}")
+    print(textwrap.indent(answer["text"], "      │ "))
+    g = answer.get("guard", {})
+    if g:
+        print(f"      guard: {g['action']}")
+    for i, msgs in sorted(caught.items()):
+        print(f"      caught in draft, sentence {i + 1}: {'; '.join(msgs)}")
+    print()
+
+
+def rescore(path: Path, cases: list[dict]) -> int:
+    """Apply the current checks to answers saved by an earlier run."""
+    saved = json.loads(path.read_text())
+    by_id = {c["id"]: c for c in cases}
+    flagged = total = 0
+    for rec in saved["records"]:
+        case = by_id.get(rec["id"])
+        if case is None:
+            continue
+        result = result_for(case)
+        facts = build_facts(case["question"], result)
+        for n, run in enumerate(rec["runs"], start=1):
+            saved_answer = run.get("answer") or run["draft"]     # Step 14 files / guarded files
+            found = check_answer(saved_answer, result, facts)
+            total += len(saved_answer["sentences"])
+            for i, msgs in sorted(found.items()):
+                flagged += 1
+                print(f"{rec['id']} run {n}, sentence {i + 1}: {saved_answer['sentences'][i]['text']}")
+                for m in msgs:
+                    print(f"    → {m}")
+    print(f"\n{flagged} of {total} saved sentences flagged by the current guard")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--show", action="store_true", help="print every answer")
     ap.add_argument("--runs", type=int, default=1, help="compose each case N times")
     ap.add_argument("--save", type=Path)
+    ap.add_argument("--rescore", type=Path, help="check saved answers instead of composing")
     args = ap.parse_args()
 
     cases = yaml.safe_load(CASES.read_text())
@@ -68,71 +115,64 @@ def main() -> int:
     if bad:
         print("CASE ERRORS:\n" + "\n".join(f"  {b}" for b in bad))
         return 2
+    if args.rescore:
+        return rescore(args.rescore, cases)
 
     print(f"{len(cases)} cases · {COMPOSER_MODEL} · {args.runs} run(s)\n")
-    print(f"{'case':<24}{'by':<16}{'sent':>5}{'words':>7}  drift")
+    print(f"{'case':<24}{'caught in drafts':<18}{'guard actions':<30}after")
     records = []
-    totals = {"advice": 0, "ungrounded_codes": 0, "ungrounded_numbers": 0,
-              "ungrounded_remedies": 0, "verdict_conflicts": 0}
-    by: dict[str, int] = {}
+    actions: dict[str, int] = {}
+    kinds: dict[str, int] = {}
+    caught_total = leaked = 0
 
     for case in cases:
-        state = {"question": case["question"],
-                 "route": Route(intent=case["intent"], scope_reason="none", rationale="eval"),
-                 "entities": entities_for(case)}
-        result = HANDLERS[case["intent"]](state)["result"]
-
+        result = result_for(case)
+        facts = build_facts(case["question"], result)
         runs = []
         for run in range(args.runs):
-            answer = compose(case["question"], result)
-            body = " ".join(s["text"] for s in answer["sentences"])
-            d = drift(result, answer["facts"], body)
-            runs.append((answer, d))
-            by[answer["composed_by"]] = by.get(answer["composed_by"], 0) + 1
-            for k, v in d.items():
-                totals[k] += len(v)
+            draft = compose(case["question"], result)
+            caught = check_answer(draft, result, facts)
+            final = guard(case["question"], result, draft)
+            remaining = check_answer(final, result, facts)
+            action = final.get("guard", {}).get("action", "?")
+            actions[action] = actions.get(action, 0) + 1
+            caught_total += len(caught)
+            leaked += len(remaining)
+            for msgs in caught.values():
+                for m in msgs:
+                    kinds[violation_kind(m)] = kinds.get(violation_kind(m), 0) + 1
+            runs.append({"draft": draft, "caught": caught, "final": final, "remaining": remaining})
             if args.show:
-                tag = f"{case['id']} (run {run + 1})" if args.runs > 1 else case["id"]
-                print(f"  ── {tag}")
-                print(textwrap.indent(answer["text"], "      │ "))
-                for p in answer["problems"]:
-                    print(f"      problem: {p}")
-                for k, v in d.items():
-                    if v:
-                        print(f"      DRIFT {k}: {', '.join(v)}")
-                print()
+                show_answer(f"{case['id']} (run {run + 1})" if args.runs > 1 else case["id"],
+                            final, caught)
 
-        drifted = [d for _, d in runs if any(d.values())]
-        first = drifted[0] if drifted else {}
-        flags = "; ".join(f"{k}: {', '.join(v)}" for k, v in first.items() if v) or "—"
-        if args.runs > 1 and drifted:
-            flags = f"{len(drifted)}/{args.runs} runs — {flags}"
-        answers = [a for a, _ in runs]
-        kinds = sorted({a["composed_by"] for a in answers})
-        retried = sum(1 for a in answers if a["problems"] and a["composed_by"] == "llm")
-        label = "/".join(kinds) + (f" ({retried} retried)" if retried else "")
-        sents = sum(len(a["sentences"]) for a in answers) / len(answers)
-        words = sum(len(" ".join(x["text"] for x in a["sentences"]).split()) for a in answers) / len(answers)
+        n_caught = sum(1 for r in runs if r["caught"])
+        acts = ", ".join(f"{a} {c}" for a, c in sorted(
+            {a: sum(1 for r in runs if r["final"].get("guard", {}).get("action") == a)
+             for a in {r["final"].get("guard", {}).get("action") for r in runs}}.items()))
+        n_left = sum(len(r["remaining"]) for r in runs)
         if not args.show:
-            print(f"{case['id']:<24}{label:<16}{sents:>5.0f}{words:>7.0f}  {flags}")
-        records.append({"id": case["id"], "status": result.get("status"),
-                        "runs": [{"answer": a, "drift": d} for a, d in runs]})
+            print(f"{case['id']:<24}{f'{n_caught}/{args.runs} runs':<18}{acts:<30}"
+                  f"{'clean' if not n_left else f'{n_left} LEFT'}")
+        records.append({"id": case["id"], "status": result.get("status"), "runs": runs})
 
-    print("\ncomposed by: " + ", ".join(f"{k} {v}" for k, v in sorted(by.items())))
-    print("drift:       " + ", ".join(f"{k.replace('_', ' ')} {v}" for k, v in totals.items()))
-    n_drift = sum(any(any(r["drift"].values()) for r in rec["runs"]) for rec in records)
-    print(f"cases with drift in any run: {n_drift}/{len(records)}")
+    print("\nguard actions: " + ", ".join(f"{a} {c}" for a, c in sorted(actions.items())))
+    print(f"sentences caught in drafts: {caught_total}")
+    if kinds:
+        print("violations by kind: " + ", ".join(f"{k} {v}" for k, v in sorted(kinds.items())))
+    print(f"violations left after the guard: {leaked}")
 
     if args.save:
         args.save.parent.mkdir(parents=True, exist_ok=True)
         args.save.write_text(json.dumps({
             "model": COMPOSER_MODEL,
             "run_at": datetime.now(UTC).isoformat(timespec="seconds"),
-            "runs": args.runs, "composed_by": by, "totals": totals, "records": records,
+            "runs": args.runs, "actions": actions, "caught": caught_total, "leaked": leaked,
+            "records": records,
         }, indent=2, default=str))
         print(f"saved {args.save}")
     print()
-    return 0
+    return 1 if leaked else 0
 
 
 if __name__ == "__main__":

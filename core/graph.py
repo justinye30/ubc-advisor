@@ -329,7 +329,7 @@ class PathView:
                 has_kids = bool(self.kids.get(r.requires))
                 expand = mark == "·" and has_kids and r.requires not in drawn
                 if expand and r.requires in detours:
-                    expand, note = False, "(another option is ready)"
+                    expand, note = False, "(not needed now: another option is ready)"
                 elif expand:
                     sig = self.signature(r.requires)
                     if sig in first_with:

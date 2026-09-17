@@ -43,8 +43,9 @@ POLICY = {"kind": "policy", "status": "ok", "codes": [], "hits": [
 def test_eligibility_facts_have_you_check_and_a_source():
     f = build_facts("can I take 221?", evaluated(course()))
     assert f.ids == {YOU, CHECK, "S1"}
-    assert f.sources == [{"id": "S1", "label": "CPSC 221 — Basic Algorithms",
-                          "url": "https://cal/cpscv-221"}]
+    assert [(x["id"], x["label"], x["url"]) for x in f.sources] == [
+        ("S1", "CPSC 221 — Basic Algorithms", "https://cal/cpscv-221")]
+    assert f.sources[0]["text"].startswith("Prerequisites as written in the calendar")
     assert "read '221' as CPSC 221" in f.text
     assert "CPSC 221: SATISFIED" in f.text
     assert "One of CPSC_V 210" in f.text
