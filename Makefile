@@ -1,4 +1,4 @@
-.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli fetch-policy chunk embed search eval-retrieval rebuild-edges ask eval-routing
+.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli fetch-policy chunk embed search eval-retrieval rebuild-edges ask eval-routing eval-entities
 
 up:            ## start the stack (foreground)
 	docker compose up --build
@@ -62,3 +62,6 @@ ask:           ## ask in plain English: make ask Q="can I retake a course?" ARGS
 
 eval-routing:  ## routing accuracy: make eval-routing ARGS="--runs 2"
 	docker compose exec app python -m eval.run_routing_eval $(ARGS)
+
+eval-entities: ## entity extraction accuracy: make eval-entities ARGS="--save eval/results/entities_baseline.json"
+	docker compose exec app python -m eval.run_entities_eval $(ARGS)

@@ -1,0 +1,53 @@
+# Held-out extraction questions, written AFTER the baseline exposed the
+# expanded-as_written rejection and BEFORE the fix was measured. Weighted
+# toward what the fix touches: lists of bare numbers, and numbers that must
+# not be borrowed across subjects. Don't tune on these.
+
+- id: hold-long-list
+  question: Can I get into CPSC 313? I have CPSC 110, 121, 210, 213 and 221.
+  targets: [CPSC 313]
+  completed: {CPSC 110: null, CPSC 121: null, CPSC 210: null, CPSC 213: null, CPSC 221: null}
+
+- id: hold-list-with-grades
+  question: I finished MATH 100 (85), 101 (78) and 221 (70). What can I take?
+  completed: {MATH 100: 85, MATH 101: 78, MATH 221: 70}
+
+- id: hold-two-lists
+  question: I've done CPSC 110 and 121, plus MATH 100 and 101. Can I take CPSC 221?
+  targets: [CPSC 221]
+  completed: {CPSC 110: null, CPSC 121: null, MATH 100: null, MATH 101: null}
+
+- id: hold-hundred-percent
+  question: I scored 100% in MATH 100. Can I take MATH 101?
+  targets: [MATH 101]
+  completed: {MATH 100: 100}
+
+- id: hold-no-borrowing
+  question: I took MATH 200 last year. Can I take CPSC 210 now?
+  targets: [CPSC 210]
+  completed: {MATH 200: null}
+
+- id: hold-in-progress-list
+  question: I'm currently in CPSC 213 and 221. What will I be able to take next year?
+  in_progress: [CPSC 213, CPSC 221]
+
+- id: hold-lowercase-list
+  question: done cpsc 110, 121 and 210 — can i do 213
+  targets: [CPSC 213]
+  completed: {CPSC 110: null, CPSC 121: null, CPSC 210: null}
+
+- id: hold-year-word
+  question: Fourth-year student, finished CPSC 320. What's between me and CPSC 420?
+  targets: [CPSC 420]
+  completed: {CPSC 320: null}
+  year: 4
+
+- id: hold-ambiguous-bare
+  question: what does 200 lead to?
+  ambiguous: ["200"]
+  no_transcript: true
+
+- id: hold-failed-in-list
+  question: I passed CPSC 110 and 210 but failed 121. Can I take CPSC 213?
+  targets: [CPSC 213]
+  completed: {CPSC 110: null, CPSC 210: null}

@@ -1,16 +1,27 @@
 """One handler per intent. Each takes the graph state and returns a
 structured `result` — facts for the composer (Step 14), never prose.
 
-Until entity extraction (Step 13) exists, handlers only see course codes
-written out in full ("CPSC 221") and no transcript. They say so in their
-status rather than guessing.
+Eligibility, path, and unlock read `state["entities"]` (Step 13): the target
+courses and the transcript the student described. Every result carries a
+`context` block saying what was assumed or ignored, so the answer can say it.
 """
 
-from core.codes import find_codes
-from core.graph import PathView, always_required, ancestry, connect, dependents
+from agent.entities import Entities, to_transcript
+from core.codes import IN_SCOPE_SUBJECTS, find_codes
+from core.evaluator import evaluate
+from core.graph import (
+    PathView,
+    always_required,
+    ancestry,
+    connect,
+    dependents,
+    unlocks_for,
+)
 from core.repo import get_course
 from core.retrieval import search_policy
-from core.transcript import Transcript
+from core.sweep import sweep
+
+LIST_CAP = 25
 
 REFUSALS: dict[str, str] = {
     "advice": (
@@ -46,20 +57,49 @@ EXAMPLES = [
 ]
 
 
-def _needs_course(kind: str) -> dict:
-    return {"result": {"kind": kind, "status": "needs_course", "codes": []}}
+def _context(e: Entities) -> dict:
+    """What the answer should say about how the question was read."""
+    return {
+        "completed": e["completed"],
+        "in_progress": e["in_progress"],
+        "grades": {**e["grades"], **{k: f"{v[0]}–{v[1]}%" for k, v in e["grade_ranges"].items()}},
+        "year": e["year"],
+        "programs": e["programs"],
+        "transcript_given": e["transcript_given"],
+        "assumptions": e["assumptions"],
+        "ignored": e["rejected"],
+    }
 
 
-def _not_found(kind: str, code: str) -> dict:
-    return {"result": {"kind": kind, "status": "course_not_found", "codes": [code]}}
+def _result(kind: str, status: str, e: Entities, **fields) -> dict:
+    return {"result": {"kind": kind, "status": status, "codes": e["targets"],
+                       "context": _context(e), **fields}}
+
+
+def _verdict(tree: dict | None, extraction_status: str, e: Entities) -> dict:
+    if tree is None:
+        if extraction_status == "no_prereq":
+            return {"verdict": "NO_PREREQUISITES"}
+        return {"verdict": "UNKNOWN", "summary": f"requirements not parsed ({extraction_status})"}
+    if not e["transcript_given"]:
+        return {}
+    r = evaluate(tree, to_transcript(e))
+    return {
+        "verdict": r.state.value,
+        "summary": r.summary,
+        "reasons": [{"state": x.state.value, "text": x.text} for x in r.reasons],
+    }
 
 
 def eligibility(state: dict) -> dict:
-    codes = find_codes(state["question"])
-    if not codes:
-        return _needs_course("eligibility")
+    e: Entities = state["entities"]
+    if not e["targets"]:
+        if not e["transcript_given"]:
+            return _result("eligibility", "needs_course", e)
+        return _sweep(e)
+
     courses = []
-    for code in codes[:3]:
+    for code in e["targets"][:3]:
         c = get_course(code)
         if c is None:
             courses.append({"code": code, "found": False})
@@ -68,10 +108,25 @@ def eligibility(state: dict) -> dict:
             "code": c.code, "found": True, "title": c.title,
             "prereq_text": c.prereq_text, "extraction_status": c.extraction_status,
             "source_url": c.source_url,
+            **_verdict(c.prereq_tree, c.extraction_status, e),
         })
-    # No transcript yet (Step 13), so no verdict — only the requirement itself.
-    return {"result": {"kind": "eligibility", "status": "requirements_only",
-                       "codes": codes[:3], "courses": courses}}
+    status = "evaluated" if e["transcript_given"] else "requirements_only"
+    return _result("eligibility", status, e, courses=courses)
+
+
+def _sweep(e: Entities) -> dict:
+    t = to_transcript(e)
+    subjects = {c.split()[0] for c in t.completed} & set(IN_SCOPE_SUBJECTS) or set(IN_SCOPE_SUBJECTS)
+    s = sweep(t, subjects)
+    return _result(
+        "eligibility", "sweep", e,
+        subjects=sorted(subjects),
+        eligible=[c.code for c in s.eligible][:LIST_CAP],
+        no_prereq=[c.code for c in s.no_prereq][:LIST_CAP],
+        to_confirm=[{"code": c.code, "summary": r.summary} for c, r in s.to_confirm][:LIST_CAP],
+        counts={"eligible": len(s.eligible), "no_prereq": len(s.no_prereq),
+                "to_confirm": len(s.to_confirm), "not_yet": len(s.not_yet)},
+    )
 
 
 def policy(state: dict) -> dict:
@@ -89,40 +144,56 @@ def policy(state: dict) -> dict:
 
 
 def unlock(state: dict) -> dict:
-    codes = find_codes(state["question"])
-    if not codes:
-        return _needs_course("unlock")
-    code = codes[0]
+    e: Entities = state["entities"]
+    if not e["targets"]:
+        return _result("unlock", "needs_course", e)
+    code = e["targets"][0]
     course = get_course(code)
     if course is None:
-        return _not_found("unlock", code)
+        return _result("unlock", "course_not_found", e)
     with connect() as conn:
         deps = dependents(conn, code)
-    return {"result": {
-        "kind": "unlock", "status": "ok", "codes": [code],
-        "title": course.title, "source_url": course.source_url,
-        "required_by": [d.code for d in deps if not d.is_optional],
-        "option_for": [d.code for d in deps if d.is_optional],
-    }}
+    base = {"title": course.title, "source_url": course.source_url}
+
+    if not e["transcript_given"]:
+        return _result("unlock", "ok", e, **base,
+                       required_by=[d.code for d in deps if not d.is_optional],
+                       option_for=[d.code for d in deps if d.is_optional])
+
+    u = unlocks_for(code, to_transcript(e), deps)
+    return _result(
+        "unlock", "personal", e, **base,
+        newly_eligible=[d.code for d, _ in u.newly_eligible],
+        to_confirm=[{"code": d.code, "summary": r.summary} for d, r in u.to_confirm],
+        still_blocked=[{"code": d.code, "summary": r.summary} for d, r in u.still_blocked],
+        already_eligible=[d.code for d in u.already_eligible],
+    )
 
 
 def path(state: dict) -> dict:
-    codes = find_codes(state["question"])
-    if not codes:
-        return _needs_course("path")
-    code = codes[0]
+    e: Entities = state["entities"]
+    if not e["targets"]:
+        return _result("path", "needs_course", e)
+    code = e["targets"][0]
     course = get_course(code)
     if course is None:
-        return _not_found("path", code)
+        return _result("path", "course_not_found", e)
+    t = to_transcript(e)
     with connect() as conn:
-        rows = ancestry(conn, code)
-    view = PathView(code, course.prereq_tree, rows, Transcript())
-    return {"result": {
-        "kind": "path", "status": "ok", "codes": [code],
-        "title": course.title, "source_url": course.source_url,
-        "required_on_every_route": always_required(code, rows, stop_at=view.ready()),
-        "tree": view.render(),
-    }}
+        rows = ancestry(conn, code, stop_at=t.completed)
+    view = PathView(code, course.prereq_tree, rows, t)
+    tree = view.render()
+    required = [c for c in always_required(code, rows, stop_at=t.completed | view.ready())
+                if c not in t.completed]
+    return _result(
+        "path", "ok", e,
+        title=course.title, source_url=course.source_url,
+        **_verdict(course.prereq_tree, course.extraction_status, e),
+        required_on_every_route=required,
+        ready_now=view.ready_shown,
+        hidden_okanagan=view.hidden_okanagan,
+        tree=tree,
+    )
 
 
 def out_of_scope(state: dict) -> dict:
@@ -132,6 +203,18 @@ def out_of_scope(state: dict) -> dict:
         "scope_reason": reason,
         "message": REFUSALS.get(reason, REFUSALS["unrelated"]),
         "examples": EXAMPLES,
+    }}
+
+
+def clarify(state: dict) -> dict:
+    e: Entities = state["entities"]
+    return {"result": {
+        "kind": state["route"]["intent"], "status": "needs_clarification",
+        "codes": e["targets"], "context": _context(e),
+        "ambiguous": e["ambiguous"],
+        "message": "; ".join(
+            f"'{a['as_written']}' could be {', '.join(a['candidates'])}" for a in e["ambiguous"]
+        ) + ". Which did you mean?",
     }}
 
 

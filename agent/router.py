@@ -126,8 +126,8 @@ def parse_route(data: object) -> Route:
     """Validate the model's JSON and make it internally consistent."""
     if not isinstance(data, dict):
         raise RouteError(f"expected an object, got {type(data).__name__}")
-    intent = data.get("intent")
-    reason = data.get("scope_reason", "none")
+    intent = str(data.get("intent", "")).strip().lower()
+    reason = str(data.get("scope_reason", "none")).strip().lower()
     if intent not in INTENTS:
         raise RouteError(f"unknown intent {intent!r}")
     if reason not in SCOPE_REASONS:

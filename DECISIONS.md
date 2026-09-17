@@ -377,3 +377,56 @@ Running log of choices made and why. Newest at the bottom.
   miss is the known-ambiguous path-before, left untuned.
 - **Both routing sets are now spent for tuning.** Further prompt changes
   need fresh questions; Step 16 is the held-out measurement.
+
+## Entity extraction (Week 2)
+
+- **The LLM reads; deterministic code decides what to believe.** The model
+  returns each course with the exact text it came from (`as_written`).
+  Validation rejects anything not in the question, resolves bare numbers
+  against the catalogue (one match: accept and say so; several: ask),
+  rejects Okanagan codes even when the suffix was dropped, and requires
+  grades and year to appear in the question.
+- **Nothing is dropped silently.** Every result carries `assumptions`
+  (stated in the answer), `rejected` (model output we didn't believe), and
+  `unused` (codes written but not extracted).
+- **"History given" is separate from "courses listed."** No history →
+  requirements only, never a verdict against an empty transcript. A failed
+  course or "nothing yet" still counts as history. In-progress courses
+  count as completed, with a stated assumption.
+- **Letter grades are percentage bands** (UBC Vancouver scale). MIN_GRADE is
+  satisfied if the band clears the bar, not satisfied if it falls short,
+  and INDETERMINATE if it straddles.
+- **Fixed a Week 1 MIN_GRADE bug:** one failing graded option plus one
+  ungraded option returned NOT_SATISFIED; now INDETERMINATE.
+- **Only eligibility/path/unlock pay for extraction**; policy and
+  out-of-scope skip it. Ambiguity routes to a `clarify` node.
+- **Program names are matched only against PROGRAM nodes that exist in the
+  trees**, loaded from the database.
+- **Structured-output constraints shaped the schema:** all fields required
+  (empty string / 0 as sentinels), no union types; enum values compared
+  case-insensitively (router fixed; prompt version unchanged).
+- **Sweep logic moved to core/sweep.py** for the agent (CLI still has its own
+  copy — cleanup pending).
+
+- **Extraction baseline:** 24/25 exact; 0 extra codes reached a verdict;
+  injection question held. The one miss was the validator: it required
+  `as_written` verbatim, and the model wrote "CPSC 121" for a bare "121",
+  so two real completed courses were dropped — which would have produced a
+  wrong "missing prerequisite" verdict.
+- **Fix:** course numbers are grounded in the question itself. A number is
+  usable if it appears bare or next to the same subject; a number written
+  next to a different subject can't be borrowed; numbers followed by % are
+  grades. `as_written` is kept in the schema but not trusted.
+- **Run-to-run variation shows up in extraction too:** `not-yet-taken`
+  passed once and returned no target the next run (model, not validator).
+- **Missing-target safety net (graph, not extractor):** if the intent needs a
+  target, none was extracted, and exactly one full code in the question went
+  unused, it becomes the target with a stated assumption. Not applied when
+  it would be a guess (several unused codes) or when an eligibility question
+  with history is really a sweep. Kept out of `extract()` so the eval still
+  measures the raw model + validator.
+  
+- **Extraction results after the grounding fix:** dev 24/25 (the one miss was
+  run-to-run variation, now covered by the missing-target safety net);
+  holdout 10/10, including the cross-subject borrowing and "100%" traps;
+  0 extra codes reached a verdict on either set.

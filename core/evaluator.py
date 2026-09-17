@@ -128,29 +128,43 @@ def evaluate(node: dict, t: Transcript) -> Result:
         if inner.state is not SATISFIED:
             return inner
 
-        # Which course actually satisfied the child?
+        # Which completed courses could satisfy the child, and do their grades?
         satisfying = [c for c in _codes(node["child"]) if t.has(c)]
-        graded: list[tuple[str, int]] = []
+        meets, fails, unsure = [], [], []
         for c in satisfying:
-            g = t.grade(c)
-            if g is not None:
-                graded.append((c, g))
+            bounds = t.grade_range(c)
+            if bounds is None:
+                unsure.append((c, "grade not reported"))
+            elif bounds[0] >= percent:
+                meets.append((c, bounds))
+            elif bounds[1] < percent:
+                fails.append((c, bounds))
+            else:
+                unsure.append((c, f"{_show(bounds)} may or may not reach {percent}%"))
 
-        if not graded:
-            codes = ", ".join(satisfying) or "the required course"
+        if meets:
+            c, bounds = max(meets, key=lambda x: x[1][0])
+            return Result(SATISFIED, [Reason(SATISFIED, f"{c}: {_show(bounds)} ≥ {percent}%")])
+        if unsure:
+            # A course whose grade we can't pin down might still meet the bar,
+            # so a known failing grade elsewhere doesn't settle it.
             return Result(
                 INDETERMINATE,
-                [Reason(INDETERMINATE, f"{codes}: needs {percent}%, grade not reported")],
-                unknown=satisfying,
+                [Reason(INDETERMINATE, f"{c}: needs {percent}%, {why}") for c, why in unsure],
+                unknown=[c for c, _ in unsure],
             )
-        if any(g >= percent for _, g in graded):
-            best = max(graded, key=lambda x: x[1])
-            return Result(SATISFIED, [Reason(SATISFIED, f"{best[0]}: {best[1]}% ≥ {percent}%")])
-        best_attempt = max(graded, key=lambda x: x[1])
+        if fails:
+            c, bounds = max(fails, key=lambda x: x[1][1])
+            return Result(
+                NOT_SATISFIED,
+                [Reason(NOT_SATISFIED, f"{c}: {_show(bounds)} < {percent}% required")],
+                unmet=[c],
+            )
+        codes = ", ".join(satisfying) or "the required course"
         return Result(
-            NOT_SATISFIED,
-            [Reason(NOT_SATISFIED, f"{best_attempt[0]}: {best_attempt[1]}% < {percent}% required")],
-            unmet=[best_attempt[0]],
+            INDETERMINATE,
+            [Reason(INDETERMINATE, f"{codes}: needs {percent}%, grade not reported")],
+            unknown=satisfying,
         )
 
     if op == "MIN_CREDITS":
@@ -227,6 +241,11 @@ def _codes(node: dict) -> list[str]:
     if "child" in node:
         out.extend(_codes(node["child"]))
     return out
+
+
+def _show(bounds: tuple[int, int]) -> str:
+    low, high = bounds
+    return f"{low}%" if low == high else f"{low}–{high}%"
 
 
 def _matches(code: str, spec: dict) -> bool:

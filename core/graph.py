@@ -69,6 +69,7 @@ def with_course(t: Transcript, code: str) -> Transcript:
     return Transcript(
         completed=t.completed | {code},
         grades=dict(t.grades),
+        grade_ranges=dict(t.grade_ranges),
         credits=dict(t.credits),
         year=t.year,
         programs=set(t.programs),
@@ -209,6 +210,7 @@ class PathView:
         self._results: dict[str, Result | None] = {}
         self._blockers: dict[str, tuple[list[EdgeRow], list[tuple[str, str]]]] = {}
         self.hidden_okanagan = 0
+        self.ready_shown: list[str] = []
 
     def result(self, code: str) -> Result | None:
         if code not in self._results:
@@ -322,6 +324,8 @@ class PathView:
                     lines.append(f"{prefix}{branch}{r}")
                     continue
                 mark, note = self.note_for(code, r)
+                if mark == "→" and r.requires not in self.ready_shown:
+                    self.ready_shown.append(r.requires)
                 has_kids = bool(self.kids.get(r.requires))
                 expand = mark == "·" and has_kids and r.requires not in drawn
                 if expand and r.requires in detours:

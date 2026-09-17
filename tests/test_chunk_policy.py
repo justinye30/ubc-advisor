@@ -120,6 +120,33 @@ def test_missing_content_root_returns_nothing():
     assert stats["no_content_root"] == 1
 
 
+def test_share_widget_nested_inside_content_wrapper_does_not_hide_content():
+    """Regression: on some pages the share widget and the real prose share one
+    top-level wrapper div, unlike the fixture above where they're siblings
+    under <article>. A whole-subtree chrome check wrongly discards the whole
+    wrapper — and every paragraph in it — because the mailto link is somewhere
+    inside. Only the widget itself should be removed."""
+    html = """
+    <main><h1>Introduction to Degree Options</h1>
+    <article class="node--view-mode-full">
+      <div class="field">
+        <ul class="share">
+          <li>Print-friendly version</li>
+          <li><a href="mailto:?subject=">Share via email</a></li>
+        </ul>
+        <p>The B.Sc. degree begins with study of the foundations of science.</p>
+        <p>To earn a B.Sc. students must follow one of seven options.</p>
+      </div>
+    </article></main>
+    """
+    chunks = chunks_for(html)
+    text = "\n".join(c.content for c in chunks)
+    assert "foundations of science" in text
+    assert "seven options" in text
+    for canary in CHROME_CANARIES:
+        assert canary not in text
+        
+
 def test_unknown_url_gets_generic_scope():
     [first, *_] = chunks_for(url="https://vancouver.calendar.ubc.ca/something-else")
     assert first.section_path.startswith("Calendar > ")

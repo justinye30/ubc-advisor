@@ -20,37 +20,85 @@ from agent.graph import ask, get_app
 from agent.router import PROMPT_VERSION, ROUTER_MODEL, classify
 
 
+def _wrap(text: str, indent: str = "    ") -> str:
+    return textwrap.fill(text, 76, initial_indent=indent, subsequent_indent=indent)
+
+
+def show_context(ctx: dict) -> None:
+    if not ctx:
+        return
+    done = [f"{c} ({ctx['grades'][c]})" if c in ctx["grades"] else c for c in ctx["completed"]]
+    if ctx["transcript_given"]:
+        print(f"  history: {', '.join(done) or 'nothing completed'}"
+              + (f"; in progress {', '.join(ctx['in_progress'])}" if ctx["in_progress"] else ""))
+    else:
+        print("  history: not given")
+    if ctx["year"] or ctx["programs"]:
+        print(f"  student: year {ctx['year'] or '?'}"
+              + (f", {', '.join(ctx['programs'])}" if ctx["programs"] else ""))
+    for note in ctx["assumptions"]:
+        print(f"  assumed: {note}")
+    for note in ctx["ignored"]:
+        print(f"  ignored: {note}")
+
+
 def show_result(result: dict) -> None:
     kind, status = result.get("kind"), result.get("status")
     print(f"  handler: {kind}   status: {status}")
     if result.get("codes"):
         print(f"  codes:   {', '.join(result['codes'])}")
+    show_context(result.get("context", {}))
 
-    if status in ("needs_course", "course_not_found"):
-        what = "that course isn't in my data" if status == "course_not_found" else "no course code found"
-        print(f"\n  {what}. (Full codes only until entity extraction — e.g. 'CPSC 221'.)")
+    if status in ("needs_course", "course_not_found", "needs_clarification"):
+        text = {
+            "needs_course": "Which course do you mean? Tell me its code, e.g. CPSC 221.",
+            "course_not_found": "That course isn't in my data.",
+        }.get(status, result.get("message", ""))
+        print(f"\n  {text}")
         return
 
-    if kind == "eligibility":
+    if kind == "eligibility" and status == "sweep":
+        c = result["counts"]
+        print(f"\n  subjects: {', '.join(result['subjects'])}")
+        print(f"  eligible ({c['eligible']}): {', '.join(result['eligible'])}")
+        print(f"  no listed prerequisites ({c['no_prereq']}): {', '.join(result['no_prereq'])}")
+        print(f"  to confirm ({c['to_confirm']}):")
+        for item in result["to_confirm"][:8]:
+            print(f"    {item['code']}: {item['summary']}")
+        print(f"  not yet: {c['not_yet']}")
+    elif kind == "eligibility":
         for c in result.get("courses", []):
             if not c["found"]:
                 print(f"\n  {c['code']}: not in my data")
                 continue
             print(f"\n  {c['code']} — {c['title']}")
-            print(textwrap.fill(c["prereq_text"] or "(no prerequisites listed)", 74,
-                                initial_indent="    ", subsequent_indent="    "))
+            if c.get("verdict"):
+                print(f"    verdict: {c['verdict']}" + (f" — {c['summary']}" if c.get("summary") else ""))
+                for r in c.get("reasons", []):
+                    print(f"      [{r['state']}] {r['text']}")
+            print(_wrap(c["prereq_text"] or "(no prerequisites listed)"))
             print(f"    {c['source_url']}")
     elif kind == "policy":
         for i, h in enumerate(result.get("hits", []), start=1):
             print(f"\n  {i}. [{h['score']:.4f}] {h['section_path']}")
+    elif kind == "unlock" and status == "personal":
+        print(f"\n  newly eligible: {', '.join(result['newly_eligible']) or '—'}")
+        for label in ("to_confirm", "still_blocked"):
+            print(f"  {label.replace('_', ' ')}:")
+            for item in result[label]:
+                print(f"    {item['code']}: {item['summary']}")
+        print(f"  already eligible without it: {', '.join(result['already_eligible']) or '—'}")
     elif kind == "unlock":
         print(f"\n  required by ({len(result['required_by'])}): {', '.join(result['required_by'])}")
         print(f"  one option for ({len(result['option_for'])}): {', '.join(result['option_for'])}")
     elif kind == "path":
+        if result.get("verdict"):
+            print(f"  right now: {result['verdict']}")
         print()
         for line in result.get("tree", []):
             print(f"    {line}")
         print(f"\n  required on every route: {', '.join(result['required_on_every_route']) or '—'}")
+        print(f"  ready to take now: {', '.join(result['ready_now']) or '—'}")
     elif kind in ("out_of_scope", "error"):
         print(f"\n  {result['message']}")
 

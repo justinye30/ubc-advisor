@@ -150,3 +150,30 @@ def test_summary_leads_with_the_definite_gap():
 def test_summary_is_headline_when_nothing_is_definitely_missing():
     r = evaluate({"op": "STANDING", "year": 3}, st("CPSC 110"))
     assert r.summary == r.headline
+
+GRADE_68 = {"op": "MIN_GRADE", "percent": 68, "child": C("MATH 226")}
+GRADE_70 = {"op": "MIN_GRADE", "percent": 70, "child": C("MATH 226")}
+
+def test_letter_grade_entirely_above_threshold():
+    r = evaluate(GRADE_68, st("MATH 226:B-"))          # 68–71
+    assert r.state is SATISFIED
+    assert "68–71%" in r.headline
+
+def test_letter_grade_entirely_below_threshold():
+    assert evaluate(GRADE_68, st("MATH 226:C+")).state is NOT_SATISFIED   # 64–67
+
+def test_letter_grade_straddling_threshold_is_indeterminate():
+    r = evaluate(GRADE_70, st("MATH 226:B-"))           # 68–71 vs 70
+    assert r.state is INDETERMINATE
+    assert "may or may not" in r.headline
+
+def test_parse_rejects_unknown_grade():
+    with pytest.raises(ValueError):
+        st("MATH 226:excellent")
+
+def test_unknown_grade_on_one_option_beats_known_fail_on_another():
+    """Previously NOT_SATISFIED: the ungraded course might still meet the bar."""
+    tree = {"op": "MIN_GRADE", "percent": 65,
+            "child": {"op": "ONE_OF", "children": [C("MATH 302"), C("STAT 302")]}}
+    assert evaluate(tree, st("STAT 302:60, MATH 302")).state is INDETERMINATE
+    assert evaluate(tree, st("STAT 302:60, MATH 302:70")).state is SATISFIED

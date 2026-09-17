@@ -259,3 +259,11 @@ def test_okanagan_count_is_not_doubled_by_repeat_lookups():
     view.blockers("T")
     view.render()
     assert view.hidden_okanagan == 1
+
+
+def test_ready_shown_lists_only_drawn_ready_courses():
+    rows = [E("T", "R", optional=True, status="no_prereq"),
+            E("T", "D", optional=True, tree=ALL(C("Z"))), E("D", "Z", status="no_prereq")]
+    view, _ = draw(ONE(C("R"), C("D")), rows)
+    assert view.ready_shown == ["R"]
+    assert "Z" in view.ready()

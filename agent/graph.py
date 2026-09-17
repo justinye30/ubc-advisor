@@ -1,16 +1,15 @@
 """The question-answering graph.
 
-    START → classify ─┬─ eligibility ─┐
-                      ├─ policy ──────┤
-                      ├─ path ────────┤
-                      ├─ unlock ──────┼→ END
-                      ├─ out_of_scope ┤
-                      └─ failed ──────┘
+    START → classify ─┬─ policy ─────────────────────────┐
+                      ├─ out_of_scope ───────────────────┤
+                      ├─ extract ─┬─ eligibility ────────┤
+                      │           ├─ path ───────────────┼→ END
+                      │           ├─ unlock ─────────────┤
+                      │           └─ clarify ────────────┤
+                      └─ failed ─────────────────────────┘
 
-Later steps add nodes (entity extraction before the handlers, composer and
-citation guard after them) without changing this shape. LangGraph makes the
-branches explicit now and allows loops later (e.g. retrieval found nothing →
-reformulate → retry).
+Only intents that need courses or a transcript pay for extraction. Later
+steps add the composer and citation guard after the handlers.
 """
 
 import json
@@ -24,27 +23,43 @@ import anthropic
 import psycopg
 from langgraph.graph import END, START, StateGraph
 
-from agent.handlers import HANDLERS, failed
+from agent.entities import Entities, EntityError, extract, fill_missing_target
+from agent.handlers import HANDLERS, clarify, failed
 from agent.router import INTENTS, Route, RouteError, classify
 
 log = logging.getLogger("agent")
 
 
+NEEDS_ENTITIES = {"eligibility", "path", "unlock"}
+
+
 class AdvisorState(TypedDict, total=False):
     question: Required[str]
     route: Route
+    entities: Entities
     result: dict
     error: str
 
 
-def pick_branch(state: AdvisorState) -> str:
+def after_classify(state: AdvisorState) -> str:
     if state.get("error") or "route" not in state:
         return "failed"
-    return state["route"]["intent"]
+    intent = state["route"]["intent"]
+    return "extract" if intent in NEEDS_ENTITIES else intent
+
+
+def after_extract(state: AdvisorState) -> str:
+    route, entities = state.get("route"), state.get("entities")
+    if state.get("error") or route is None or entities is None:
+        return "failed"
+    if entities["ambiguous"]:
+        return "clarify"
+    return route["intent"]
 
 
 def build_graph(classify_fn: Callable[[str], Route] = classify,
-                handlers: dict | None = None):
+                handlers: dict | None = None,
+                extract_fn: Callable[[str], Entities] = extract):
     handlers = handlers or HANDLERS
     missing = set(INTENTS) - set(handlers)
     if missing:
@@ -56,18 +71,34 @@ def build_graph(classify_fn: Callable[[str], Route] = classify,
         except (RouteError, anthropic.APIError) as exc:
             return {"error": f"routing failed: {exc}"}
 
+    def extract_node(state: AdvisorState) -> dict:
+        try:
+            entities = extract_fn(state["question"])
+        except (EntityError, anthropic.APIError) as exc:
+            return {"error": f"entity extraction failed: {exc}"}
+        route = state.get("route")
+        intent = route["intent"] if route else ""
+        return {"entities": fill_missing_target(entities, intent)}
+
     g = StateGraph(AdvisorState)
     g.add_node("classify", classify_node)
+    g.add_node("extract", extract_node)
     for intent in INTENTS:
         g.add_node(intent, handlers[intent])
         g.add_edge(intent, END)
-    g.add_node("failed", handlers.get("failed", failed))
-    g.add_edge("failed", END)
+    for name, default in (("clarify", clarify), ("failed", failed)):
+        g.add_node(name, handlers.get(name, default))
+        g.add_edge(name, END)
 
     g.add_edge(START, "classify")
     g.add_conditional_edges(
-        "classify", pick_branch,
-        {**{i: i for i in INTENTS}, "failed": "failed"},
+        "classify", after_classify,
+        {**{i: i for i in INTENTS if i not in NEEDS_ENTITIES},
+         "extract": "extract", "failed": "failed"},
+    )
+    g.add_conditional_edges(
+        "extract", after_extract,
+        {**{i: i for i in NEEDS_ENTITIES}, "clarify": "clarify", "failed": "failed"},
     )
     return g.compile()
 
@@ -113,4 +144,3 @@ def ask(question: str, app=None, record: bool = True) -> AdvisorState:
     if record:
         log_query(state, int((time.monotonic() - started) * 1000))
     return state
-

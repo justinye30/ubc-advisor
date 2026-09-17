@@ -123,3 +123,8 @@ def test_prompt_examples_do_not_leak_eval_questions():
     prompt_codes = set(find_codes(router.SYSTEM_PROMPT))
     assert prompt_codes, "prompt should contain worked examples"
     assert not (prompt_codes & eval_codes), f"shared codes: {sorted(prompt_codes & eval_codes)}"
+
+
+def test_enum_values_are_compared_case_insensitively():
+    r = parse_route({"intent": "Out_Of_Scope", "scope_reason": "Advice", "rationale": "x"})
+    assert (r["intent"], r["scope_reason"]) == ("out_of_scope", "advice")
