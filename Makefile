@@ -1,4 +1,4 @@
-.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli fetch-policy chunk embed search eval-retrieval rebuild-edges ask eval-routing eval-entities
+.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli fetch-policy chunk embed search eval-retrieval rebuild-edges ask eval-routing eval-entities eval-composer
 
 up:            ## start the stack (foreground)
 	docker compose up --build
@@ -65,3 +65,6 @@ eval-routing:  ## routing accuracy: make eval-routing ARGS="--runs 2"
 
 eval-entities: ## entity extraction accuracy: make eval-entities ARGS="--save eval/results/entities_baseline.json"
 	docker compose exec app python -m eval.run_entities_eval $(ARGS)
+
+eval-composer: ## composer drift + answers: make eval-composer ARGS="--show"
+	docker compose exec app python -m eval.run_composer_eval $(ARGS)

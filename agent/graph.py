@@ -1,15 +1,16 @@
 """The question-answering graph.
 
-    START → classify ─┬─ policy ─────────────────────────┐
-                      ├─ out_of_scope ───────────────────┤
-                      ├─ extract ─┬─ eligibility ────────┤
-                      │           ├─ path ───────────────┼→ END
-                      │           ├─ unlock ─────────────┤
-                      │           └─ clarify ────────────┤
-                      └─ failed ─────────────────────────┘
+    START → classify ─┬─ policy ───────────────────┐
+                      ├─ out_of_scope ─────────────┤
+                      ├─ extract ─┬─ eligibility ──┤
+                      │           ├─ path ─────────┼→ compose → END
+                      │           ├─ unlock ───────┤
+                      │           └─ clarify ──────┤
+                      └─ failed ───────────────────┘
 
-Only intents that need courses or a transcript pay for extraction. Later
-steps add the composer and citation guard after the handlers.
+Only intents that need courses or a transcript pay for extraction. Every
+branch ends in `compose`, which uses a template when no model is needed.
+Step 15 adds the citation guard after it.
 """
 
 import json
@@ -23,6 +24,7 @@ import anthropic
 import psycopg
 from langgraph.graph import END, START, StateGraph
 
+from agent.composer import Answer, compose
 from agent.entities import Entities, EntityError, extract, fill_missing_target
 from agent.handlers import HANDLERS, clarify, failed
 from agent.router import INTENTS, Route, RouteError, classify
@@ -38,6 +40,7 @@ class AdvisorState(TypedDict, total=False):
     route: Route
     entities: Entities
     result: dict
+    answer: Answer
     error: str
 
 
@@ -59,7 +62,8 @@ def after_extract(state: AdvisorState) -> str:
 
 def build_graph(classify_fn: Callable[[str], Route] = classify,
                 handlers: dict | None = None,
-                extract_fn: Callable[[str], Entities] = extract):
+                extract_fn: Callable[[str], Entities] = extract,
+                compose_fn: Callable[[str, dict], Answer] = compose):
     handlers = handlers or HANDLERS
     missing = set(INTENTS) - set(handlers)
     if missing:
@@ -80,15 +84,20 @@ def build_graph(classify_fn: Callable[[str], Route] = classify,
         intent = route["intent"] if route else ""
         return {"entities": fill_missing_target(entities, intent)}
 
+    def compose_node(state: AdvisorState) -> dict:
+        return {"answer": compose_fn(state["question"], state.get("result", {}))}
+
     g = StateGraph(AdvisorState)
     g.add_node("classify", classify_node)
     g.add_node("extract", extract_node)
+    g.add_node("compose", compose_node)
+    g.add_edge("compose", END)
     for intent in INTENTS:
         g.add_node(intent, handlers[intent])
-        g.add_edge(intent, END)
+        g.add_edge(intent, "compose")
     for name, default in (("clarify", clarify), ("failed", failed)):
         g.add_node(name, handlers.get(name, default))
-        g.add_edge(name, END)
+        g.add_edge(name, "compose")
 
     g.add_edge(START, "classify")
     g.add_conditional_edges(
@@ -113,12 +122,10 @@ def get_app():
     return _app
 
 
-def _citations(result: dict) -> list[str]:
-    urls = [h["source_url"] for h in result.get("hits", [])]
-    urls += [c["source_url"] for c in result.get("courses", []) if c.get("source_url")]
-    if result.get("source_url"):
-        urls.append(result["source_url"])
-    return list(dict.fromkeys(urls))
+def _citations(state: AdvisorState) -> list[str]:
+    """URLs the answer actually cites (not everything the handler retrieved)."""
+    answer = state.get("answer")
+    return [s["url"] for s in answer["sources"]] if answer else []
 
 
 def log_query(state: AdvisorState, latency_ms: int) -> None:
@@ -132,7 +139,7 @@ def log_query(state: AdvisorState, latency_ms: int) -> None:
                 "VALUES (%s, %s, %s, %s, %s, %s)",
                 (state["question"], route["intent"] if route else None,
                  result.get("status"), latency_ms,
-                 json.dumps(_citations(result)), state.get("error")),
+                 json.dumps(_citations(state)), state.get("error")),
             )
     except psycopg.Error as exc:
         log.warning("could not write query log: %s", exc)

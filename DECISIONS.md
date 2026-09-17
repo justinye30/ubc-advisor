@@ -425,8 +425,84 @@ Running log of choices made and why. Newest at the bottom.
   it would be a guess (several unused codes) or when an eligibility question
   with history is really a sweep. Kept out of `extract()` so the eval still
   measures the raw model + validator.
-  
+
 - **Extraction results after the grounding fix:** dev 24/25 (the one miss was
   run-to-run variation, now covered by the missing-target safety net);
   holdout 10/10, including the cross-subject borrowing and "100%" traps;
   0 extra codes reached a verdict on either set.
+
+## Composer (Week 2)
+
+- **The verdict sentence is fixed text, never model output.** "Yes / Not yet /
+  I can't tell" is chosen from the evaluator's state (`VERDICT_SENTENCE`), so
+  a fluent model can't turn INDETERMINATE into "you're good to go". Every
+  "yes" says "based on what you've told me."
+- **The model writes only the explanation, as sentences that each cite fact
+  ids:** [you] what the student said and how we read it, [check] computed
+  results, [S#] quoted calendar sources. The question is labelled "not a
+  source." Code numbers the calendar citations and adds sources and the
+  disclaimer.
+- **Templates for everything that needs no model:** refusals, clarifications,
+  needs-course, not-found, no-results, errors (internal messages never shown).
+- **Structural validation only in this step** (non-empty, ≤6 sentences, every
+  sentence cites known ids); one retry that shows the model its rejected
+  answer; then a deterministic template explanation. Every answer records
+  `composed_by` and `problems`.
+- **Drift is measured, not yet enforced:** advice phrases, codes/bare
+  numbers not in the facts, percentages/credits not in the facts, claims
+  contradicting the verdict. Step 15 enforces these and re-measures.
+- **Model: Haiku 4.5** (COMPOSER_MODEL), to be revisited if the eval shows
+  weak explanations.
+- **query_logs.citations now records sources the answer actually cited.**
+- **Composer eval: 15 cases**, real handlers on fixed inputs, no model
+  scoring. Baseline: composed by llm __ / fallback __ / retries __;
+  drift: advice __, ungrounded codes __, numbers __, verdict conflicts __.
+
+- **First real answers exposed semantic drift the surface checks missed.**
+  The 61%-in-MATH-226 answer (INDETERMINATE) invented a remedy ("retake MATH
+  226", which the repeat policy forbids for passed courses) and described the
+  unverifiable MATH_O 220 as missing. No Step 14 check flagged it.
+- **Fixes:** the INDETERMINATE verdict now names what can't be checked, as
+  fixed text; facts mark those as "unknown, not missing"; the prompt forbids
+  gap-closing suggestions and referrals; checks add "need to take/complete/
+  retake…", advisor referrals, and ungrounded remedy words; citing [check]
+  links the page the check was computed from, so unlock answers keep a source.
+- `elig-cant-tell` is a development case for these fixes; the other 14
+  composer cases form the baseline.
+
+- **Composer baseline (Haiku 4.5, prompt after fixes):** 15/15 composed by
+  the model, no fallbacks or retries; advice, invented codes, numbers and
+  remedies all 0 in one run. Rerun with `--runs 3`: ______.
+- **The verdict-conflict check was too blunt:** it flagged true claims about
+  other courses ("you can take CPSC 221 now" on the way to CPSC 404). Now
+  sentence-level and scoped to the verdict's course (or no course named).
+- **Composition varies run to run.** The same can't-tell case produced "You
+  don't meet the stated prerequisites for CPSC 221" in one run (a conflict
+  with the INDETERMINATE verdict) and nothing flaggable in another. The
+  prompt reduces but doesn't eliminate this; Step 15 enforces it.
+
+- **Composer baseline (2 evals × 3 runs × 15 cases = 90 answers):** all
+  composed by the model, no fallbacks; 0 invented codes, numbers, or
+  remedies. Drift in 4–5/15 cases: advice flags 3–6 (policy-retake,
+  policy-lop), verdict-conflict flags 5–6 (elig-year, elig-cant-tell,
+  path-personal). Run-to-run variation makes this a range, not a number.
+- **Flags to classify before Step 15:** real drift vs. true partial claims
+  ("you meet the year requirement") vs. calendar wording echoed from a cited
+  source ("consult Science Advising").
+
+- **Composer flags classified (all 8 from the saved baseline):** 5 verdict
+  conflicts were false positives — a negation ("cannot confirm you meet"),
+  hedges ("whether you can take"), a true partial claim ("you satisfy two of
+  the four requirements"); 3 advice flags were calendar wording the answer
+  cited ("they should consult academic advisors", "present your case to an
+  Advisor in Science Advising").
+- **One real error, caught for the wrong reason:** path-personal said CPEN
+  212 "can be taken immediately". It can't — the path tree's note
+  "(another option is ready)" meant a different option in its group was
+  ready, and the model misread it. A facts-labelling problem, not a
+  phrasing one.
+- **Conclusion for Step 15:** phrase-matching checks are too noisy to
+  enforce and blind to factual errors. The guard should check claims
+  against structured facts (readiness lists), treat hedges/negations/partial
+  claims as non-claims, judge advice wording against the cited source's
+  text, and fix the ambiguous tree label.

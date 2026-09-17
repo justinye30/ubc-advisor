@@ -1,11 +1,12 @@
-"""Ask a question in plain English and see how it's routed and handled.
+"""Ask a question in plain English.
 
   python -m agent "can I retake a course I passed?"
+  python -m agent --debug "can I take 221? I did 110, 121 and 210"
   python -m agent --route-only "should I take CPSC 320 or 322?"
   python -m agent --graph          # print the graph as Mermaid
 
-This is a debug view: it prints the structured result a handler produced.
-Turning that into a sentence is the composer's job (Step 14).
+By default this prints the composed answer. --debug adds the route, the
+structured result the handler produced, and how the answer was composed.
 """
 
 import argparse
@@ -107,6 +108,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(prog="python -m agent")
     ap.add_argument("question", nargs="?")
     ap.add_argument("--route-only", action="store_true", help="classify, don't run a handler")
+    ap.add_argument("--debug", action="store_true", help="show route, result, and composition")
     ap.add_argument("--graph", action="store_true", help="print the graph as Mermaid")
     args = ap.parse_args()
 
@@ -116,8 +118,8 @@ def main() -> int:
     if not args.question:
         ap.error("a question is required")
 
-    print(f"\n  router: {ROUTER_MODEL}  prompt {PROMPT_VERSION}")
     if args.route_only:
+        print(f"\n  router: {ROUTER_MODEL}  prompt {PROMPT_VERSION}")
         route = classify(args.question)
         print(f"  intent:  {route['intent']}"
               + (f" ({route['scope_reason']})" if route["intent"] == "out_of_scope" else ""))
@@ -125,13 +127,29 @@ def main() -> int:
         return 0
 
     state = ask(args.question)
-    route = state.get("route")
-    if route:
-        print(f"  intent:  {route['intent']}"
-              + (f" ({route['scope_reason']})" if route["intent"] == "out_of_scope" else ""))
-        print(f"  why:     {route['rationale']}")
-    show_result(state.get("result", {}))
-    print()
+    answer = state.get("answer")
+
+    if args.debug:
+        print(f"\n  router: {ROUTER_MODEL}  prompt {PROMPT_VERSION}")
+        route = state.get("route")
+        if route:
+            print(f"  intent:  {route['intent']}"
+                  + (f" ({route['scope_reason']})" if route["intent"] == "out_of_scope" else ""))
+            print(f"  why:     {route['rationale']}")
+        show_result(state.get("result", {}))
+        if answer:
+            print(f"\n  composed by: {answer['composed_by']}")
+            for p in answer["problems"]:
+                print(f"  problem:     {p}")
+            for s in answer["sentences"]:
+                print(f"    [{', '.join(s['cites'])}] {s['text']}")
+        print("\n" + "-" * 76)
+
+    if answer:
+        print()
+        for para in answer["text"].split("\n\n"):
+            print("\n".join(_wrap(line, "") for line in para.split("\n")))
+            print()
     return 0 if state.get("result", {}).get("status") != "error" else 1
 
 

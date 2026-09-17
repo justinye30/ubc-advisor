@@ -1,0 +1,98 @@
+# Composer eval: fixed inputs -> real handlers -> real composer.
+# Routing and extraction are bypassed so this measures composition alone.
+#
+#   intent      which handler to run
+#   targets     course codes (for eligibility / path / unlock)
+#   have        transcript, CLI syntax: "CPSC 110, MATH 226:74, MATH 200:B-"
+#               (omit for "the student said nothing about their history")
+#   in_progress codes being taken now
+#   year        year standing
+#   assumptions notes the answer should mention
+#
+# Nothing is scored by a model. The runner counts drift — advice, codes and
+# numbers not in the facts, claims contradicting the verdict — and --show
+# prints every answer so you can read them yourself.
+
+- id: elig-yes
+  intent: eligibility
+  question: Can I take CPSC 221? I've done CPSC 110, 121 and 210.
+  targets: [CPSC 221]
+  have: CPSC 110, CPSC 121, CPSC 210
+  assumptions: ["read '121' as CPSC 121", "read '210' as CPSC 210"]
+
+- id: elig-not-yet
+  intent: eligibility
+  question: Can I take CPSC 320? I have CPSC 110 and CPSC 121.
+  targets: [CPSC 320]
+  have: CPSC 110, CPSC 121
+
+- id: elig-cant-tell
+  intent: eligibility
+  question: Can I take CPSC 221? I have CPSC 210 and got 61 in MATH 226.
+  targets: [CPSC 221]
+  have: CPSC 210, MATH 226:61
+
+- id: elig-letter-grade
+  intent: eligibility
+  question: Is a B- in MATH 226 enough for CPSC 221? I also have CPSC 210.
+  targets: [CPSC 221]
+  have: CPSC 210, MATH 226:B-
+
+- id: elig-in-progress
+  intent: eligibility
+  question: I'm taking CPSC 210 now. Can I take CPSC 213 next term? I finished CPSC 121.
+  targets: [CPSC 213]
+  have: CPSC 121
+  in_progress: [CPSC 210]
+  assumptions: ["counted CPSC 210 as completed (in progress now)"]
+
+- id: elig-no-history
+  intent: eligibility
+  question: What are the prerequisites for CPSC 313?
+  targets: [CPSC 313]
+
+- id: elig-year
+  intent: eligibility
+  question: I'm in second year with CPSC 221 and MATH 200 done. Can I take CPSC 340?
+  targets: [CPSC 340]
+  have: CPSC 221, MATH 200
+  year: 2
+
+- id: sweep
+  intent: eligibility
+  question: What can I take next? I've finished CPSC 110 and CPSC 121.
+  have: CPSC 110, CPSC 121
+
+- id: unlock-general
+  intent: unlock
+  question: What does CPSC 213 lead to?
+  targets: [CPSC 213]
+
+- id: unlock-personal
+  intent: unlock
+  question: What would CPSC 221 open up for me? I have CPSC 110, 121 and 210.
+  targets: [CPSC 221]
+  have: CPSC 110, CPSC 121, CPSC 210
+
+- id: path-personal
+  intent: path
+  question: What's between me and CPSC 404? I've done CPSC 110, 121 and 210.
+  targets: [CPSC 404]
+  have: CPSC 110, CPSC 121, CPSC 210
+
+- id: path-no-history
+  intent: path
+  question: What do I need before CPSC 340?
+  targets: [CPSC 340]
+
+- id: policy-retake
+  intent: policy
+  question: Can I retake a course I already passed to get a higher mark?
+
+- id: policy-lop
+  intent: policy
+  question: How many credits can I take at another school on a Letter of Permission?
+
+- id: policy-science-credits
+  intent: policy
+  question: How many science credits does a BSc need?
