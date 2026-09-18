@@ -21,3 +21,7 @@ dist/
 !.vscode/extensions.json
 .idea/
 .DS_Store
+
+# Eval outputs contain composed answers and retrieved calendar text.
+# Kept locally; headline numbers live in DECISIONS.md.
+eval/results/
