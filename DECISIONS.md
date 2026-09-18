@@ -655,3 +655,18 @@ Running log of choices made and why. Newest at the bottom.
   calendar does not specify a cap" from five retrieved sections. Absence
   can't be checked that way, so the composer must scope such statements and
   the guard catches unscoped ones. Pipeline → a15e80f86f.
+
+- **Final end-to-end baseline (pipeline a15e80f86f):** routing 46/47;
+  answer correctness 38/40; refusal correctness 10/10; false refusals 1;
+  guard passed 37, regenerated 1, 0 violations shipped; latency p50 4.4s,
+  p95 21.3s (policy only, from the embedding throttle).
+- **Guard catches in the final runs:** "at most 6 credits numbered 500+"
+  (a real UBC rule the model knew but the retrieved sections didn't state)
+  and "the remaining 18 credits available from other faculties" (arithmetic
+  plus an unsupported policy claim). Both regenerated.
+- **Three of my 40 labels were wrong** and were corrected by reading the
+  answers: q33's page list, and q38 twice (which page, then which phrasing).
+  The eval found bugs in the system and in itself.
+- **Known limits:** q16's bare-number ambiguity is unresolved by design;
+  guard precision was tuned against flags read by hand, so precision on
+  unseen phrasings is sampled, not proven.
