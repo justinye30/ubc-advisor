@@ -16,7 +16,6 @@ branch ends in `compose`, which uses a template when no model is needed, and
 import hashlib
 import json
 import logging
-import os
 import time
 from collections.abc import Callable
 from typing import Required, TypedDict, cast
@@ -30,6 +29,7 @@ from agent.entities import Entities, EntityError, extract, fill_missing_target
 from agent.guard import guard
 from agent.handlers import HANDLERS, clarify, failed
 from agent.router import INTENTS, Route, RouteError, classify
+from core.db import connection
 
 log = logging.getLogger("agent")
 
@@ -44,6 +44,7 @@ class AdvisorState(TypedDict, total=False):
     result: dict
     answer: Answer
     error: str
+    log_id: int          # query_logs row, set by ask() when recording
 
 
 def after_classify(state: AdvisorState) -> str:
@@ -151,26 +152,30 @@ def _citations(state: AdvisorState) -> list[str]:
     return [s["url"] for s in answer["sources"]] if answer else []
 
 
-def log_query(state: AdvisorState, latency_ms: int) -> None:
-    """Record every question. Logging must never break an answer."""
+def log_query(state: AdvisorState, latency_ms: int) -> int | None:
+    """Record every question and return the row id. Logging must never break an answer."""
     route = state.get("route")
     result = state.get("result", {})
     try:
-        with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
-            conn.execute(
+        with connection() as conn:
+            row = conn.execute(
                 "INSERT INTO query_logs (question, route, verdict, latency_ms, citations, error) "
-                "VALUES (%s, %s, %s, %s, %s, %s)",
+                "VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
                 (state["question"], route["intent"] if route else None,
                  result.get("status"), latency_ms,
                  json.dumps(_citations(state)), state.get("error")),
-            )
-    except psycopg.Error as exc:
+            ).fetchone()
+            return row["id"] if row else None
+    except psycopg.Error as exc:       # includes PoolTimeout
         log.warning("could not write query log: %s", exc)
+        return None
 
 
 def ask(question: str, app=None, record: bool = True) -> AdvisorState:
     started = time.monotonic()
     state = cast(AdvisorState, (app or get_app()).invoke({"question": question}))
     if record:
-        log_query(state, int((time.monotonic() - started) * 1000))
+        log_id = log_query(state, int((time.monotonic() - started) * 1000))
+        if log_id is not None:
+            state["log_id"] = log_id
     return state

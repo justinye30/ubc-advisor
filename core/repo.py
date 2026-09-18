@@ -3,13 +3,12 @@
 Shared by the CLI and (later) the Flask API. Neither should write SQL.
 """
 
-import os
 from dataclasses import dataclass
 from typing import Any
 
-import psycopg
-from psycopg.rows import DictRow, dict_row
 from psycopg import sql
+
+from core.db import connection as _connect
 
 
 @dataclass
@@ -21,10 +20,6 @@ class Course:
     prereq_tree: dict | None
     extraction_status: str
     source_url: str
-
-
-def _connect() -> psycopg.Connection[DictRow]:
-    return psycopg.connect(os.environ["DATABASE_URL"], row_factory=dict_row)  # type: ignore[arg-type]
 
 
 _COLUMNS = """code, title, credits, prereq_text, prereq_tree,

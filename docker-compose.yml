@@ -24,6 +24,8 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    # Same server as production, plus --reload so code edits restart workers.
+    command: gunicorn -c api/gunicorn_conf.py --reload api.app:app
     ports:
       - "8000:8000"
     volumes:

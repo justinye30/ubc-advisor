@@ -31,8 +31,10 @@ MAX_BATCH_TEXTS = 128
 # single request must fit well inside one minute's budget, or it can never
 # succeed no matter how long we wait.
 MAX_BATCH_TOKENS = min(60_000, TPM_LIMIT // 2) if TPM_LIMIT else 60_000
-TIMEOUT = 60
-MAX_RETRIES = 6
+# Defaults suit batch ingestion. The web server sets these lower: a user
+# waiting on a page shouldn't sit through six rate-limit retries.
+TIMEOUT = float(os.environ.get("EMBED_TIMEOUT", "60"))
+MAX_RETRIES = int(os.environ.get("EMBED_MAX_RETRIES", "6"))
 
 _last_sent = 0.0     # monotonic time of the previous request
 _last_tokens = 0     # tokens in the previous request

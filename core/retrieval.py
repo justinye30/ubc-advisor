@@ -13,15 +13,12 @@ Run:  python -m core.retrieval "can I retake a course I passed?" [--mode hybrid]
 """
 
 import argparse
-import os
 import re
 import sys
 from dataclasses import dataclass
 
-import psycopg
-from psycopg.rows import DictRow, dict_row
-
 from core.codes import IN_SCOPE_SUBJECTS
+from core.db import connection
 from core.embeddings import MODEL, embed_query, vector_literal
 
 POOL = 20      # candidates per leg before fusion
@@ -40,8 +37,7 @@ class Hit:
     score: float
 
 
-def connect() -> psycopg.Connection[DictRow]:
-    return psycopg.Connection[DictRow].connect(os.environ["DATABASE_URL"], row_factory=dict_row)
+connect = connection   # pooled; use as `with connect() as conn:`
 
 
 # ------------------------------------------------------------------ pure helpers
@@ -125,27 +121,31 @@ def search_policy(query: str, k: int = 5, mode: str = "hybrid",
     if mode not in ("vector", "hybrid"):
         raise ValueError(f"unknown mode: {mode}")
 
-    own = conn is None
-    conn = conn or connect()
-    try:
-        qvec = qvec or embed_query(query)
-        vec_rows = vector_ranking(conn, qvec, POOL if mode == "hybrid" else k)
+    # Embed BEFORE borrowing a connection. The embedding call is a network
+    # round trip that can take seconds (or wait out a rate limit); holding a
+    # pooled connection idle through it starves other requests.
+    qvec = qvec or embed_query(query)
+    if conn is not None:
+        return _search(conn, query, qvec, k, mode)
+    with connect() as pooled:
+        return _search(pooled, query, qvec, k, mode)
 
-        tsq = code_tsquery(query, corpus_subjects(conn)) if mode == "hybrid" else None
-        lex_rows = lexical_ranking(conn, tsq, POOL) if tsq else []
 
-        if not lex_rows:
-            return [Hit(r["id"], r["source_url"], r["section_path"], r["content"], r["score"])
-                    for r in vec_rows[:k]]
+def _search(conn, query: str, qvec: list[float], k: int, mode: str) -> list[Hit]:
+    vec_rows = vector_ranking(conn, qvec, POOL if mode == "hybrid" else k)
 
-        by_id = {r["id"]: r for r in [*vec_rows, *lex_rows]}
-        fused = rrf([[r["id"] for r in vec_rows], [r["id"] for r in lex_rows]])
-        return [Hit(cid, by_id[cid]["source_url"], by_id[cid]["section_path"],
-                    by_id[cid]["content"], score)
-                for cid, score in fused[:k]]
-    finally:
-        if own:
-            conn.close()
+    tsq = code_tsquery(query, corpus_subjects(conn)) if mode == "hybrid" else None
+    lex_rows = lexical_ranking(conn, tsq, POOL) if tsq else []
+
+    if not lex_rows:
+        return [Hit(r["id"], r["source_url"], r["section_path"], r["content"], r["score"])
+                for r in vec_rows[:k]]
+
+    by_id = {r["id"]: r for r in [*vec_rows, *lex_rows]}
+    fused = rrf([[r["id"] for r in vec_rows], [r["id"] for r in lex_rows]])
+    return [Hit(cid, by_id[cid]["source_url"], by_id[cid]["section_path"],
+                by_id[cid]["content"], score)
+            for cid, score in fused[:k]]
 
 
 def main() -> int:

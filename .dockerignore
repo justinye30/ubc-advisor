@@ -8,3 +8,5 @@ data
 .env
 .pytest_cache
 web/dist
+eval/results
+*.dump

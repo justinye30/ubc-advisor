@@ -1,4 +1,4 @@
-.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli fetch-policy chunk embed search eval-retrieval rebuild-edges ask eval-routing eval-entities eval-composer eval-e2e
+.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli fetch-policy chunk embed search eval-retrieval rebuild-edges ask eval-routing eval-entities eval-composer eval-e2e smoke
 
 up:            ## start the stack (foreground)
 	docker compose up --build
@@ -46,7 +46,7 @@ chunk:         ## chunk cached policy pages into policy_chunks
 	docker compose exec app python -m ingest.chunk_policy
 
 embed:          ## embed policy chunks: make embed ARGS="--dry-run"
-	docker compose exec app python -m ingest.embed_policy $(ARGS)
+	docker compose exec -e EMBED_TIMEOUT=60 -e EMBED_MAX_RETRIES=6 app python -m ingest.embed_policy $(ARGS)
 
 search:         ## search policy text: make search Q="can I retake a course" ARGS="--mode hybrid"
 	docker compose exec app python -m core.retrieval "$(Q)" $(ARGS)
@@ -71,3 +71,9 @@ eval-composer: ## composer drift + answers: make eval-composer ARGS="--show"
 
 eval-e2e:      ## end-to-end: make eval-e2e ARGS="--show" / "--audit" / "--save eval/results/e2e_baseline.json"
 	docker compose exec app python -m eval.run_e2e_eval $(ARGS)
+
+Q ?= I did CPSC 110, 121 and 210. Can I take CPSC 221?
+smoke:         ## hit the running API: make smoke Q="can I retake a course?"
+	curl -s localhost:8000/health/ready | python3 -m json.tool
+	curl -s -X POST localhost:8000/api/ask -H 'Content-Type: application/json' \
+	  -d '{"question": "$(Q)"}' | python3 -m json.tool

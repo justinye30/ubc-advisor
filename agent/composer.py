@@ -143,7 +143,8 @@ _client: anthropic.Anthropic | None = None
 def _default_client() -> anthropic.Anthropic:
     global _client
     if _client is None:
-        _client = anthropic.Anthropic()
+        from agent.llm import new_client
+        _client = new_client()
     return _client
 
 

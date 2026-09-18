@@ -12,21 +12,19 @@ Whether a student can actually take something is still decided by
 evaluate() on the full tree. The graph narrows; the evaluator decides.
 """
 
-import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-import psycopg
-from psycopg.rows import DictRow, dict_row
+from psycopg.rows import dict_row
 
 from core.codes import KNOWN_RETIRED, is_in_scope, is_secondary_school
+from core.db import connection
 from core.evaluator import INDETERMINATE, NOT_SATISFIED, SATISFIED, Result, evaluate
 from core.transcript import Transcript
 from core.tree import course_codes
 
-
-def connect() -> psycopg.Connection[DictRow]:
-    return psycopg.Connection[DictRow].connect(os.environ["DATABASE_URL"], row_factory=dict_row)
+# Callers write `with connect() as conn:`; the pool keeps that shape.
+connect = connection
 
 
 # ------------------------------------------------------------------ reverse: what mentions X
