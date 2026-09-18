@@ -51,9 +51,10 @@ _BACK_REFERENCE = re.compile(
     r"|which|these|those|they|both)\b", re.IGNORECASE)
 
 HEDGES = re.compile(
-    r"\b(?:whether|if|once|after|unless|until|depends?|depending|would|could|might|may"
+    r"\b(?:whether|if|once|after|before|unless|until|depends?|depending|would|could|might|may"
     r"|confirm|determine|verify|tell|sure|certain|possibly|potentially)\b", re.IGNORECASE)
-NEGATIONS = re.compile(r"\b(?:not|never|no)\b|n't\b", re.IGNORECASE)
+NEGATIONS = re.compile(
+    r"\b(?:not|never|no|cannot|unable|without)\b|n't\b", re.IGNORECASE)
 PARTIAL = re.compile(
     r"^\W*(?:\w+\W+){0,6}?(?:requirements?|parts?|conditions?|portions?|components?"
     r"|criteri(?:on|a)|of the|of its|of these)\b", re.IGNORECASE)
@@ -63,6 +64,11 @@ AVAILABILITY = re.compile(
     r"|\byou(?:'re| are) (?:now )?(?:ready|eligible|able) (?:for|to take)"
     r"|\b(?:which|that) you can (?:take|register)"
     r"|\b(?:open|available) to you\b", re.IGNORECASE)
+CALENDAR_SILENT = re.compile(
+    r"\bthe (?:academic )?calendar (?:does not|doesn't|does't|fails to)\s+"
+    r"(?:specify|mention|say|state|list|address|include|define|set)"
+    r"|\b(?:isn't|is not|are not|aren't) (?:specified|mentioned|stated|listed|addressed) "
+    r"(?:anywhere )?in the (?:academic )?calendar", re.IGNORECASE)
 HISTORY_POSITIVE = re.compile(
     r"\byou(?:'ve| have)? (?:already )?(?:completed|taken|passed|finished|done)\b", re.IGNORECASE)
 HISTORY_NEGATIVE = re.compile(
@@ -139,6 +145,36 @@ def _is_partial(clause: str, match: re.Match) -> bool:
 _BEFORE_VERB = re.compile(r"(?:open|available) to you|(?:which|that) you can", re.IGNORECASE)
 
 
+_POSSESSIVE = re.compile(r"(\d{3}[A-Za-z]?)\s*['’]s\b")
+_DESTINATION = re.compile(
+    r"(?:toward|towards|leading to|lead to|leads to|on the way to|en route to|before|"
+    r"in order to take|to reach|to get into)\s+(?:meeting\s+)?(?:the\s+)?"
+    r"(?:[a-z]+\s+){0,3}?[A-Za-z]{2,5}(?:_[VvOo])?\s*(\d{3}[A-Za-z]?)", re.IGNORECASE)
+
+
+def _drop_possessives(text: str, codes: list[str]) -> list[str]:
+    """"...toward meeting CPSC 221's prerequisites" names whose requirements
+    they are; "...courses that lead toward CPSC 221" names the destination.
+    Neither is a course the student is being told they can take."""
+    named = set(_POSSESSIVE.findall(text)) | set(_DESTINATION.findall(text))
+    return [c for c in codes if c.split()[-1] not in named]
+
+
+def leading_list(text: str) -> list[str]:
+    """The courses right at the start of `text`: the object of a claim.
+
+    "CPSC 213 now since you've finished CPSC 210" -> CPSC 213
+    "either CPSC 221 or DSCI 221 -> CPSC 221, DSCI 221
+    """
+    spans = [m for m in _CODE_SPAN.finditer(text) if find_codes(m.group(0))]
+    run: list[re.Match] = []
+    for m in spans:
+        if run and not _LIST_GAP.match(text[run[-1].end():m.start()]):
+            break
+        run.append(m)
+    return [find_codes(m.group(0))[0] for m in run]
+
+
 def claimed_codes(clause: str, codes: list[str], match: re.Match) -> list[str]:
     """The courses a 'you can take' / 'you completed' claim is about.
 
@@ -147,10 +183,10 @@ def claimed_codes(clause: str, codes: list[str], match: re.Match) -> list[str]:
     "courses that you can take", where they come before it.
     """
     if not find_codes(clause):                      # borrowed
-        return codes
+        return _drop_possessives(clause, codes)
     if _BEFORE_VERB.search(match.group(0)):
-        return find_codes(clause[:match.start()])
-    return find_codes(clause[match.end():])
+        return _drop_possessives(clause, find_codes(clause[:match.start()]))
+    return _drop_possessives(clause, leading_list(clause[match.end():]))
 
 
 # ------------------------------------------------------------------ what's true
@@ -204,8 +240,19 @@ def sentence_violations(sentence: Sentence, truth: Truth, facts: Facts) -> list[
 
     out += [f"mentions {c}, which isn't in the facts" for c in ungrounded_codes(text, facts.text)]
     out += [f"states {n}, which isn't in the facts" for n in ungrounded_numbers(text, facts.text)]
-    out += [f"suggests '{w}', which the facts don't mention"
-            for w in ungrounded_remedies(text, facts.text)]
+    # Remedy words are checked clause by clause, skipping negated clauses:
+    # "you cannot repeat the other course for a higher grade" states the rule,
+    # it doesn't suggest a way around it.
+    remedies: list[str] = []
+    for clause, _ in clauses(text):
+        if NEGATIONS.search(clause):
+            continue
+        remedies += [w for w in ungrounded_remedies(clause, facts.text) if w not in remedies]
+    out += [f"suggests '{w}', which the facts don't mention" for w in remedies]
+
+    if CALENDAR_SILENT.search(text):
+        # Five retrieved sections can't show what the whole calendar omits.
+        out.append("claims the calendar is silent; only the retrieved sections can be checked")
 
     cited = " ".join(truth.source_text.get(c, "") for c in sentence.cites)
     for phrase in advice_phrases(text):
@@ -218,9 +265,16 @@ def sentence_violations(sentence: Sentence, truth: Truth, facts: Facts) -> list[
         about_target = not codes or bool(set(codes) & truth.targets)
         others = [c for c in codes if c not in truth.targets]
 
+        # "…required on every route to CPSC 404, and you're eligible to take it
+        # now" is about the ready course in the clause, not the target.
+        ready_here = [c for c in others if truth.can_take and c in truth.can_take]
+
         if truth.verdicts and about_target and not hedged:
             if not truth.verdicts & {"SATISFIED", "NO_PREREQUISITES"} and not NEGATIONS.search(clause):
                 for m in POSITIVE_CLAIMS.finditer(clause):
+                    subject = claimed_codes(clause, codes, m)
+                    if ready_here and not (set(subject) & truth.targets):
+                        continue
                     if not _is_partial(clause, m):
                         out.append(f"says '{m.group(0)}' but the verdict isn't a yes")
             if "NOT_SATISFIED" not in truth.verdicts:
@@ -257,6 +311,7 @@ KINDS = [
     ("says the student completed", "invented history"),
     ("says the student hasn't", "contradicts history"),
     ("says '", "contradicts verdict"),
+    ("claims the calendar is silent", "unverifiable absence"),
 ]
 
 
@@ -282,11 +337,16 @@ def describe(answer: Answer, violations: dict[int, list[str]]) -> list[str]:
 
 # ------------------------------------------------------------------ enforcement
 
-def _with_guard(answer: Answer, action: str, before: dict, after: dict) -> Answer:
+def _with_guard(answer: Answer, action: str, before: dict, after: dict,
+                draft: Answer | None = None) -> Answer:
+    source = draft or answer
     return Answer(**{**answer, "guard": {
         "action": action,
         "violations": [f"{i + 1}: {m}" for i, ms in sorted(before.items()) for m in ms],
         "remaining": [f"{i + 1}: {m}" for i, ms in sorted(after.items()) for m in ms],
+        # The flagged draft sentences themselves, so flags can be read by hand.
+        "caught": [{"sentence": source["sentences"][i]["text"], "why": ms}
+                   for i, ms in sorted(before.items())],
     }})
 
 
@@ -303,7 +363,7 @@ def guard(question: str, result: dict, answer: Answer,
     retry = compose_fn(question, result, feedback=describe(answer, before), previous=answer)
     after = check_answer(retry, result, facts) if retry["composed_by"] == "llm" else None
     if after == {}:
-        return _with_guard(retry, "regenerated", before, {})
+        return _with_guard(retry, "regenerated", before, {}, draft=answer)
 
     # 2. Keep what's clean from the better attempt.
     base, bad = (retry, after) if after is not None and len(after) < len(before) else (answer, before)
@@ -312,11 +372,11 @@ def guard(question: str, result: dict, answer: Answer,
         text, used = render(base["lead"], keep, facts)
         trimmed = Answer(**{**base, "text": text, "sources": used,
                             "sentences": [{"text": s.text, "cites": s.cites} for s in keep]})
-        return _with_guard(trimmed, "trimmed", before, {})
+        return _with_guard(trimmed, "trimmed", before, {}, draft=answer)
 
     # 3. Nothing survived: the template explanation.
     body = plain_answer(result, facts)
     text, used = render(base["lead"], body, facts)
     fallback = Answer(**{**base, "text": text, "sources": used, "composed_by": "fallback",
                          "sentences": [{"text": s.text, "cites": s.cites} for s in body]})
-    return _with_guard(fallback, "fallback", before, {})
+    return _with_guard(fallback, "fallback", before, {}, draft=answer)

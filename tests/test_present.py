@@ -86,7 +86,7 @@ def test_sweep_and_unlock_headlines_count_correctly():
                                "prerequisites for 1 course in CPSC.")]
     unlock = {"kind": "unlock", "status": "personal", "codes": ["CPSC 221"],
               "newly_eligible": ["CPSC 304", "CPSC 310"]}
-    assert headline(unlock) == ["Taking CPSC 221 would newly open 2 courses for you."]
+    assert headline(unlock) == ["Taking CPSC 221 opens 2 courses for you."]
 
 
 # ---------- templates and fallback ----------
@@ -176,3 +176,10 @@ def test_refusal_examples_are_quoted():
                             "examples": ["Can I take A?", "What does B unlock?", "Can I retake C?"]})
     assert body[1].text == ('You could ask things like "Can I take A?", '
                             '"What does B unlock?", or "Can I retake C?"')
+
+
+def test_unlock_headline_says_finishing_when_they_already_have_the_course():
+    unlock = {"kind": "unlock", "status": "personal", "codes": ["CPSC 213"],
+              "newly_eligible": ["CPSC 310", "CPSC 313", "CPSC 317"]}
+    assert headline(unlock) == ["Taking CPSC 213 opens 3 courses for you."]
+    assert headline({**unlock, "already_taken": True}) == ["Finishing CPSC 213 opens 3 courses for you."]

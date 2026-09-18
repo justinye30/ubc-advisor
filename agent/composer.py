@@ -67,6 +67,9 @@ For each sentence, list in "cites" the ids of the facts it relies on.
   plain words.
 - If there is no OUTCOME, your first sentence must answer the question directly
   from the sources, or say that the sources don't address it.
+- Never say what the calendar as a whole does or doesn't contain. You only see
+  a few sections of it. Write "the sections I found don't mention X", not
+  "the calendar doesn't specify X".
 - Use course codes exactly as they appear in the facts.
 
 NEVER

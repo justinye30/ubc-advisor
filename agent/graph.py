@@ -13,6 +13,7 @@ branch ends in `compose`, which uses a template when no model is needed, and
 `guard`, which checks each sentence against the facts before anything ships.
 """
 
+import hashlib
 import json
 import logging
 import os
@@ -123,6 +124,18 @@ def build_graph(classify_fn: Callable[[str], Route] = classify,
 
 
 _app = None
+
+
+def pipeline_version() -> str:
+    """Changes whenever any model, prompt, or schema in the pipeline changes.
+    End-to-end results are only comparable across runs with the same version."""
+    from agent import composer, entities, router
+    parts = [
+        router.PROMPT_VERSION,
+        entities.ENTITY_MODEL, entities.SYSTEM_PROMPT, json.dumps(entities.ENTITY_SCHEMA, sort_keys=True),
+        composer.COMPOSER_MODEL, composer.SYSTEM_PROMPT, json.dumps(composer.ANSWER_SCHEMA, sort_keys=True),
+    ]
+    return hashlib.sha256("\n".join(parts).encode()).hexdigest()[:10]
 
 
 def get_app():

@@ -278,6 +278,8 @@ def test_violations_trigger_one_regeneration_with_feedback():
     feedback, previous = rc.calls[0]
     assert "CPEN 212, which isn't ready" in feedback[0] and previous["sentences"][1]["text"] == BAD[0]
     assert info(out)["violations"] == ["2: says the student can take CPEN 212, which isn't ready"]
+    assert info(out)["caught"] == [{"sentence": BAD[0],
+                                    "why": ["says the student can take CPEN 212, which isn't ready"]}]
 
 
 def test_persistent_violations_are_trimmed():
@@ -313,3 +315,73 @@ def test_every_message_has_a_kind():
     assert "other" not in kinds
     assert kinds == {"not ready", "invented history", "contradicts history", "contradicts verdict",
                      "invented code", "invented number", "invented remedy", "advice"}
+
+
+# ---------- from the end-to-end run (1 real, 2 false positives) ----------
+
+def test_e2e_real_overclaim_is_caught():
+    path = {**PATH_404, "codes": ["CPSC 340"], "ready_now": ["CPSC 210", "MATH 221"],
+            "tree": ["├─ · MATH 221   option", "├─ · MATH 254   option",
+                     "├─ · STAT 251   option", "├─ · MATH 318   option", "├─ · CPSC 210   option"]}
+    text = ("Several other mathematics options like MATH 221, MATH 254, STAT 251, and MATH 318 "
+            "are also available to you now and appear as prerequisites to CPSC 340.")
+    assert flags(path, text) == ["says the student can take MATH 254, which isn't ready",
+                                 "says the student can take STAT 251, which isn't ready",
+                                 "says the student can take MATH 318, which isn't ready"]
+
+
+def test_e2e_pronoun_claim_about_a_ready_course_is_not_a_verdict_claim():
+    ready = {**PATH_404, "ready_now": ["CPSC 304", "CPSC 213"]}
+    assert flags(ready, "CPSC 304 is the only course required on every possible route to CPSC 404, "
+                        "and you're eligible to take it now based on your completed courses.") == []
+
+
+def test_e2e_before_you_can_take_is_sequencing_not_availability():
+    to_313 = {**PATH_404, "codes": ["CPSC 313"], "title": "Computer Hardware",
+              "required_on_every_route": ["CPSC 213", "CPSC 121", "CPSC 210"],
+              "ready_now": ["CPSC 210"],
+              "tree": ["├─ · CPSC 213   required", "│  ├─ · CPSC 121   required",
+                       "│  └─ → CPSC 210   required   ready to take"]}
+    assert flags(to_313, "CPSC 121 must also be completed before you can take CPSC 213, "
+                         "which itself is a prerequisite for CPSC 313.") == []
+
+
+def test_e2e_possessive_mention_is_not_an_availability_claim():
+    to_340 = {**PATH_404, "codes": ["CPSC 340"],
+              "ready_now": ["CPSC 210", "MATH 101", "MATH 103", "MATH 105", "CPSC 203", "MATH 221"],
+              "tree": ["├─ · CPSC 221   option", "├─ → CPSC 210   option   ready to take",
+                       "├─ → MATH 101   option   ready to take", "├─ → MATH 103   option   ready to take",
+                       "├─ → MATH 105   option   ready to take", "├─ → CPSC 203   option   ready to take",
+                       "└─ → MATH 221   option   ready to take"]}
+    assert flags(to_340, "You can take CPSC 210, MATH 101, MATH 103, MATH 105, CPSC 203, or "
+                         "MATH 221 right now as steps toward meeting CPSC 221's prerequisites.") == []
+
+
+def test_e2e_negated_remedy_states_the_rule(): 
+    retake = policy("A student who has passed a course will not be permitted to repeat that "
+                    "course for higher standing. Courses on the Science Credit Exclusion Lists "
+                    "are considered the same course for this purpose.")
+    assert flags(retake, "If you have already passed one course from a credit exclusion list, you "
+                         "cannot repeat the other course for a higher grade, since courses in the "
+                         "Science Credit Exclusion Lists are treated as the same course.",
+                 ["S1"]) == []
+    # An actual suggestion is still caught.
+    assert flags(retake, "You could repeat it for a higher grade next year.", ["S1"]) == [
+        "suggests 'higher grade', which the facts don't mention"]
+
+
+def test_e2e_claiming_the_calendar_is_silent_is_caught():
+    corpus = policy("First-year students may register in a maximum of 38 credits.")
+    bad = ("The calendar does not specify a cap on how many first-year courses count toward "
+           "the degree.")
+    assert flags(corpus, bad, ["S1"]) == [
+        "claims the calendar is silent; only the retrieved sections can be checked"]
+    ok = "The sections I found don't mention a cap on first-year courses."
+    assert flags(corpus, ok, ["S1"]) == []
+
+
+def test_leading_list():
+    from agent.guard import leading_list
+    assert leading_list(" either CPSC 221 or DSCI 221 right now") == ["CPSC 221", "DSCI 221"]
+    assert leading_list(" CPSC 213 now since you've finished CPSC 210") == ["CPSC 213"]
+    assert leading_list(" nothing here") == []

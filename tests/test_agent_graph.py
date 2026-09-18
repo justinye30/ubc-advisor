@@ -167,3 +167,26 @@ def test_failures_and_clarifications_are_composed_too():
     ex = CountingExtractor(entities(targets=[], ambiguous=[
         {"as_written": "320", "role": "target", "candidates": ["CPSC 320", "MATH 320"]}]))
     assert app("path", ex).invoke({"question": "q"})["answer"]["text"] == "answer for path"
+
+
+def test_policy_search_outage_becomes_an_error_answer(monkeypatch):
+    from agent import handlers
+    from core.embeddings import EmbeddingError
+
+    def down(*a, **k):
+        raise EmbeddingError("voyage 503")
+    monkeypatch.setattr(handlers, "search_policy", down)
+    result = handlers.policy({"question": "Can I retake a course?"})["result"]
+    assert result["status"] == "error" and "voyage 503" in result["message"]
+
+
+def test_unknown_course_reads_as_declining():
+    from agent import handlers
+    e = entities(targets=["CPSC 999"], transcript_given=True, completed=["CPSC 110"])
+    monkey = handlers.get_course
+    handlers.get_course = lambda code: None
+    try:
+        result = handlers.eligibility({"question": "Can I take CPSC 999?", "entities": e})["result"]
+    finally:
+        handlers.get_course = monkey
+    assert result["status"] == "course_not_found"

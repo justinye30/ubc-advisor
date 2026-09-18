@@ -323,7 +323,16 @@ def fill_missing_target(e: Entities, intent: str) -> Entities:
     is the target — the student typed it in full. Said out loud, never silent.
     A "what can I take?" with history given is a sweep, not a missing target.
     """
-    if e["targets"] or e["ambiguous"] or len(e["unused"]) != 1:
+    if e["targets"] or e["ambiguous"]:
+        return e
+    if intent == "unlock" and not e["unused"] and len(e["in_progress"]) == 1:
+        # "If I finish CPSC 213 this term, what becomes available?" — the course
+        # they're taking is the one they're asking about.
+        code = e["in_progress"][0]
+        return Entities(**{**e, "targets": [code],
+                           "assumptions": [*e["assumptions"],
+                                           f"took {code} as the course you're asking about"]})
+    if len(e["unused"]) != 1:
         return e
     if intent == "eligibility" and e["transcript_given"]:
         return e

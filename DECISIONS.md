@@ -577,3 +577,81 @@ Running log of choices made and why. Newest at the bottom.
 - **Summary:** 90 guarded answers, 0 violations shipped; the guard acted on
   ~9%; before the guard, 2 of 45 Step 14 answers would have shipped a
   factual error.
+
+## End-to-end eval (Week 2, Step 16)
+
+- **50 questions through the full graph:** 40 answerable (incl. 2 where
+  "which course?" is correct), 10 to decline. No wording reused from earlier
+  eval sets; no course codes shared with prompt examples (tested).
+- **Answer correctness uses gold inputs, not gold text:** each answerable
+  question lists the intent, courses, history, grades and year a careful
+  reader would extract; the runner feeds those to the same handlers and
+  compares results with what the pipeline reached from the English. Policy
+  answers are checked on cited page and key facts. The core's own accuracy is
+  Week 1's golden set; `--audit` spot-checks it here.
+- **Declining** = refusal, course not found, no results, "which course?"
+  with nothing to go on, or an answer saying the calendar doesn't cover it.
+  Retrieval always returns 5 chunks, so d09 (tuition) tests the composer's
+  "sources don't address it" rule.
+- **pipeline_version()** hashes all prompts, schemas and models; printed and
+  saved with every run.
+- **Fixed:** a Voyage outage in the policy handler crashed the whole request;
+  now it's an error answer. The eval also survives a crashing question.
+- **Guard records flagged draft sentences,** so fresh guard catches can be
+  read by hand — the independent precision check Step 15 lacked.
+- **Audit:** __ gold results checked against the calendar; __ disagreements.
+- **Baseline (pipeline ______):** routing __/47; answer correctness __/40;
+  refusal correctness __/10; false refusals __; guard: passed __ / regenerated
+  __ / trimmed __ / fallback __; guard catches read: __ real, __ false
+  positive; latency p50 __s, p95 __s. Failures: ______.
+
+- **First end-to-end baseline (pipeline 02e8cfbcfe, two runs):** routing 47/47
+  and 46/47; answer correctness 39/40 and 37/40; refusal correctness 8/10
+  both runs; false refusals 1–2; guard passed 37–38, regenerated 1–2, no
+  trims or fallbacks; latency p50 ~7s, p95 ~22s (policy only, from the
+  Voyage free-tier throttle).
+- **Audit:** 23 of 26 gold results confirmed against the calendar; the three
+  oddities (CPSC 420's prereq_text, MATH 220 in an unlock, an empty sweep
+  line) were checked and are fine.
+- **Guard precision on fresh flags: 1 real, 2 false positives.** Real: an
+  answer claiming MATH 254/STAT 251/MATH 318 were "available to you now"
+  when they weren't (regenerated). False positives: a pronoun claim about a
+  ready course ("you're eligible to take it now"), and "before you can take
+  CPSC 213" read as availability.
+- **Fixes:** eligibility returns `course_not_found` like the other handlers
+  (d07/d08 now read as declines); an unlock with a lone in-progress course
+  uses it as the target (q25); "before" is a hedge; a positive claim beside a
+  ready non-target course isn't a verdict claim. All four are regression
+  tests.
+- **Known instability:** "what comes after 200?" (q16) alternates between a
+  clarification and a refusal. Left untuned.
+
+- **After the first fixes:** refusal correctness 10/10 (unknown courses now
+  return `course_not_found`); routing 46/47 and answer correctness 38/40,
+  both limited by q16 ("what comes after 200?", still unstable) and q25.
+- **q25 was a real bug:** an unlock question was evaluated against a
+  transcript that already contained the target (in-progress counts as
+  completed), so "newly eligible" was empty. The before-state now excludes
+  the target, and the opening sentence says "Finishing X…" when the student
+  already has it.
+- **Guard precision across the e2e exercise: 2 real, 4 false positives**
+  (pronoun reference, "before you can take", possessive mention, borrowed
+  codes). All are regression tests. Recall on real errors was good from the
+  start; precision needed five rounds of reading flags by hand.
+- **q33 label:** the answer cites the transfer-credit page rather than
+  general degree requirements, and every claim is grounded there. Label
+  widened — the check is "cites a page that supports the answer".
+- **Policy latency (~20s) is the Voyage free-tier throttle** (EMBED_RPM=3),
+  not the pipeline; every other route is 5–10s.
+
+- **Two label errors found by reading answers, not system failures:**
+  q33 expected only `general-degree-requirements`, but the answer correctly
+  turns on transfer-credit and upper-level limits (label widened); q38
+  assumed the Lower-level Requirements page caps first-year courses — it
+  doesn't (lab science, additional courses, foundational only), so the corpus
+  can't answer it and the question now tests scoped "not in the sections I
+  found" phrasing.
+- **New violation kind, "unverifiable absence":** an answer said "the
+  calendar does not specify a cap" from five retrieved sections. Absence
+  can't be checked that way, so the composer must scope such statements and
+  the guard catches unscoped ones. Pipeline → a15e80f86f.

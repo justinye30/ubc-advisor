@@ -214,7 +214,8 @@ def headline(result: dict) -> list[str]:
         return [(f"Based on what you've told me, you meet the listed prerequisites for "
                 f"{_plural(n['eligible'], 'course')} in {', '.join(result['subjects'])}.")]
     if kind == "unlock" and status == "personal":
-        return [(f"Taking {result['codes'][0]} would newly open "
+        verb = "Finishing" if result.get("already_taken") else "Taking"
+        return [(f"{verb} {result['codes'][0]} opens "
                 f"{_plural(len(result['newly_eligible']), 'course')} for you.")]
     if kind == "unlock" and status == "ok":
         n = len(result["required_by"]) + len(result["option_for"])

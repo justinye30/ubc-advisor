@@ -8,6 +8,7 @@ courses and the transcript the student described. Every result carries a
 
 from agent.entities import Entities, to_transcript
 from core.codes import IN_SCOPE_SUBJECTS, find_codes
+from core.embeddings import EmbeddingError
 from core.evaluator import evaluate
 from core.graph import (
     PathView,
@@ -20,6 +21,7 @@ from core.graph import (
 from core.repo import get_course
 from core.retrieval import search_policy
 from core.sweep import sweep
+from core.transcript import Transcript
 
 LIST_CAP = 25
 
@@ -110,6 +112,10 @@ def eligibility(state: dict) -> dict:
             "source_url": c.source_url,
             **_verdict(c.prereq_tree, c.extraction_status, e),
         })
+    if not any(c["found"] for c in courses):
+        # Same status as unlock/path use, so "that course isn't in my data"
+        # reads as declining rather than answering.
+        return _result("eligibility", "course_not_found", e, courses=courses)
     status = "evaluated" if e["transcript_given"] else "requirements_only"
     return _result("eligibility", status, e, courses=courses)
 
@@ -130,7 +136,13 @@ def _sweep(e: Entities) -> dict:
 
 
 def policy(state: dict) -> dict:
-    hits = search_policy(state["question"], k=5)
+    try:
+        hits = search_policy(state["question"], k=5)
+    except EmbeddingError as exc:
+        # The embedding service is down or rate-limited: fail this answer
+        # cleanly rather than the whole request.
+        return {"result": {"kind": "error", "status": "error", "codes": [],
+                           "message": f"policy search unavailable: {exc}"}}
     return {"result": {
         "kind": "policy",
         "status": "ok" if hits else "no_results",
@@ -160,9 +172,17 @@ def unlock(state: dict) -> dict:
                        required_by=[d.code for d in deps if not d.is_optional],
                        option_for=[d.code for d in deps if d.is_optional])
 
-    u = unlocks_for(code, to_transcript(e), deps)
+    # "What does taking X open up?" — compare against a record without X,
+    # even when the student has already taken it or is taking it now.
+    t = to_transcript(e)
+    already = code in t.completed
+    before = Transcript(completed=t.completed - {code},
+                        grades={k: v for k, v in t.grades.items() if k != code},
+                        grade_ranges={k: v for k, v in t.grade_ranges.items() if k != code},
+                        credits=dict(t.credits), year=t.year, programs=set(t.programs))
+    u = unlocks_for(code, before, deps)
     return _result(
-        "unlock", "personal", e, **base,
+        "unlock", "personal", e, **base, already_taken=already,
         newly_eligible=[d.code for d, _ in u.newly_eligible],
         to_confirm=[{"code": d.code, "summary": r.summary} for d, r in u.to_confirm],
         still_blocked=[{"code": d.code, "summary": r.summary} for d, r in u.still_blocked],

@@ -271,3 +271,15 @@ def test_no_fill_when_it_would_be_a_guess():
     assert fill_missing_target(sweep, "eligibility")["targets"] == []   # a sweep
     have = v("Can I take CPSC 221?", targets=[C("CPSC 221")])
     assert fill_missing_target(have, "path") is have                    # nothing missing
+
+
+def test_unlock_uses_a_lone_in_progress_course_as_the_target():
+    from agent.entities import fill_missing_target
+    e = v("If I finish CPSC 213 this term, what becomes available? I have CPSC 110.",
+          in_progress=[C("CPSC 213")], completed=[G("CPSC 110")])
+    assert e["targets"] == []
+    filled = fill_missing_target(e, "unlock")
+    assert filled["targets"] == ["CPSC 213"]
+    assert "took CPSC 213 as the course you're asking about" in filled["assumptions"]
+    # Only for unlock: an eligibility question with history is still a sweep.
+    assert fill_missing_target(e, "eligibility")["targets"] == []

@@ -1,0 +1,319 @@
+# End-to-end eval: 50 questions through the whole pipeline
+# (classify → extract → handler → compose → guard).
+#   40 answerable (including 2 where the right answer is "which course?")
+#   10 that the system should decline
+#
+# Written before the first run. Freeze every prompt, then measure; the
+# pipeline version printed by the runner changes if any prompt, schema, or
+# model changes.
+#
+# Answerable questions carry GOLD INPUTS, not expected answers:
+#   intent       the correct route
+#   targets      the course(s) the question is about
+#   have         what the student said they've passed ("CPSC 110, MATH 226:72")
+#   in_progress  courses they said they're taking
+#   year         year standing, if stated
+# The runner feeds the gold inputs to the same deterministic handlers and
+# checks that the pipeline, reading the English question, reached the same
+# result. Whether the handlers themselves are right against the calendar is
+# spot-checked with --audit (Week 1 measured the core separately).
+#
+# Optional checks:
+#   status       expected handler status (needs_clarification, requirements_only…)
+#   candidates   for clarifications: courses that must be offered
+#   pages        for policy: a cited source URL must end with one of these
+#   mentions     phrases the answer must contain ("six|6" = either)
+#
+# Declines carry `decline: true` and, optionally, the expected route.
+# None of these questions reuse wording from the routing, extraction, or
+# composer eval sets, and none share course codes with prompt examples.
+
+# ------------------------------------------------ eligibility, history given
+- id: q01
+  question: I've finished CPSC 110, 121 and 210. Am I allowed to register for CPSC 213?
+  intent: eligibility
+  targets: [CPSC 213]
+  have: CPSC 110, CPSC 121, CPSC 210
+
+- id: q02
+  question: Could I take CPSC 310 if I only have CPSC 110 done?
+  intent: eligibility
+  targets: [CPSC 310]
+  have: CPSC 110
+
+- id: q03
+  question: Got 72 in MATH 226 and I've passed CPSC 210 — does that qualify me for CPSC 221?
+  intent: eligibility
+  targets: [CPSC 221]
+  have: CPSC 210, MATH 226:72
+
+- id: q04
+  question: I have CPSC 210 and a C+ in MATH 226. Is CPSC 221 possible for me?
+  intent: eligibility
+  targets: [CPSC 221]
+  have: CPSC 210, MATH 226:C+
+
+- id: q05
+  question: I'm enrolled in CPSC 213 right now and already did CPSC 221. Can I sign up for CPSC 313 next term?
+  intent: eligibility
+  targets: [CPSC 313]
+  have: CPSC 221
+  in_progress: [CPSC 213]
+
+- id: q06
+  question: Is CPSC 320 open to me? I finished CPSC 221 and CPSC 121.
+  intent: eligibility
+  targets: [CPSC 320]
+  have: CPSC 121, CPSC 221
+
+- id: q07
+  question: Third-year student with CPSC 221, MATH 200 and STAT 251 — can I do CPSC 340?
+  intent: eligibility
+  targets: [CPSC 340]
+  have: CPSC 221, MATH 200, STAT 251
+  year: 3
+
+- id: q08
+  question: I passed MATH 104 and MATH 105. Am I eligible for MATH 200?
+  intent: eligibility
+  targets: [MATH 200]
+  have: MATH 104, MATH 105
+
+- id: q09
+  question: done cpsc 110 and 121, can i take 210
+  intent: eligibility
+  targets: [CPSC 210]
+  have: CPSC 110, CPSC 121
+
+# ------------------------------------------------ eligibility, no history
+- id: q10
+  question: What does CPSC 313 require?
+  intent: eligibility
+  targets: [CPSC 313]
+  status: requirements_only
+
+- id: q11
+  question: What are the prerequisites for MATH 221?
+  intent: eligibility
+  targets: [MATH 221]
+  status: requirements_only
+
+- id: q12
+  question: Tell me what I'd need before enrolling in CPSC 322.
+  intent: eligibility
+  targets: [CPSC 322]
+  status: requirements_only
+
+# ------------------------------------------------ sweeps
+- id: q13
+  question: What am I eligible for? I've completed CPSC 110, CPSC 121 and MATH 102.
+  intent: eligibility
+  have: CPSC 110, CPSC 121, MATH 102
+
+- id: q14
+  question: I haven't taken any university courses yet. Which ones can I start with?
+  intent: eligibility
+  have: ""
+
+# ------------------------------------------------ clarification is the right answer
+- id: q15
+  question: is 320 open to me?
+  intent: eligibility
+  status: needs_clarification
+  candidates: [CPSC 320, MATH 320]
+
+- id: q16
+  question: what comes after 200?
+  intent: unlock
+  status: needs_clarification
+  candidates: [MATH 200]
+
+# ------------------------------------------------ path
+- id: q17
+  question: What's left before I can take CPSC 404? Done CPSC 110, 121, 210 and 221.
+  intent: path
+  targets: [CPSC 404]
+  have: CPSC 110, CPSC 121, CPSC 210, CPSC 221
+
+- id: q18
+  question: Map out the prerequisites that lead to CPSC 420.
+  intent: path
+  targets: [CPSC 420]
+
+- id: q19
+  question: I've done CPSC 110. What courses stand between me and CPSC 313?
+  intent: path
+  targets: [CPSC 313]
+  have: CPSC 110
+
+- id: q20
+  question: How would I get to CPSC 340 from where I am? I have CPSC 110 and MATH 104.
+  intent: path
+  targets: [CPSC 340]
+  have: CPSC 110, MATH 104
+
+- id: q21
+  question: What do I need to work through before CPSC 411?
+  intent: path
+  targets: [CPSC 411]
+
+- id: q22
+  question: Second year, finished CPSC 210 and CPSC 121. What's the route to CPSC 317?
+  intent: path
+  targets: [CPSC 317]
+  have: CPSC 121, CPSC 210
+  year: 2
+
+# ------------------------------------------------ unlock
+- id: q23
+  question: What does taking CPSC 210 lead to?
+  intent: unlock
+  targets: [CPSC 210]
+
+- id: q24
+  question: Which courses list MATH 103 as a prerequisite?
+  intent: unlock
+  targets: [MATH 103]
+
+- id: q25
+  question: If I finish CPSC 213 this term, what becomes available? I already have CPSC 110, 121, 210 and 221.
+  intent: unlock
+  targets: [CPSC 213]
+  have: CPSC 110, CPSC 121, CPSC 210, CPSC 221
+
+- id: q26
+  question: What would STAT 251 open up for me? I've done MATH 102, MATH 103 and CPSC 110.
+  intent: unlock
+  targets: [STAT 251]
+  have: CPSC 110, MATH 102, MATH 103
+
+- id: q27
+  question: Where can CPSC 110 take me?
+  intent: unlock
+  targets: [CPSC 110]
+
+- id: q28
+  question: After MATH 200, what new courses could I register for? I've got MATH 102 and MATH 103.
+  intent: unlock
+  targets: [MATH 200]
+  have: MATH 102, MATH 103
+
+# ------------------------------------------------ policy
+- id: q29
+  question: If I already passed a course, am I allowed to repeat it to raise my grade?
+  intent: policy
+  pages: [course-and-specialization-approval]
+
+- id: q30
+  question: What's the most I can take elsewhere on a Letter of Permission?
+  intent: policy
+  pages: [credit-ubc-and-elsewhere]
+  mentions: ["six|6"]
+
+- id: q31
+  question: How many credits in a BSc have to be science courses?
+  intent: policy
+  pages: [science-and-arts-requirements]
+  mentions: ["72"]
+
+- id: q32
+  question: What counts toward the communication requirement for Science students?
+  intent: policy
+  pages: [communication-requirements]
+
+- id: q33
+  question: How much of my BSc has to be earned at UBC itself?
+  intent: policy
+  # Widened after the first run: the answer cites transfer-credit and
+  # upper-level limits, which is what "earned at UBC" actually turns on.
+  pages: [general-degree-requirements, credit-ubc-and-elsewhere, upper-level-requirement]
+  mentions: ["50|half"]
+
+- id: q34
+  question: What happens when two courses are on a credit exclusion list together?
+  intent: policy
+  pages: [registration, course-and-specialization-approval, credit-ubc-and-elsewhere]
+
+- id: q35
+  question: How many upper-level credits are needed to graduate with a BSc?
+  intent: policy
+  pages: [upper-level-requirement, general-degree-requirements]
+
+- id: q36
+  question: What's the rule if my sessional average drops too low?
+  intent: policy
+  pages: [academic-performance-review-and-continuation]
+
+- id: q37
+  question: How many credits before I'm considered a third-year student?
+  intent: policy
+  pages: [promotion-requirements-and-degree-progression]
+
+- id: q38
+  # Checked by hand: the Lower-level Requirements page has no such cap (it
+  # covers the lab-science, additional-course and foundational requirements),
+  # so the corpus can't answer this. The right behaviour is to say so, scoped
+  # to the sections retrieved — not to characterize the whole calendar.
+  question: Is there a cap on how many first-year courses count toward a BSc?
+  intent: policy
+  # Either phrasing is right: "the sections I found don't mention a cap", or
+  # naming the degree-wide caps and saying they aren't specific to first year.
+  mentions: ["don't mention|doesn't mention|does not mention|no cap|not specifically|not specific to"]
+
+- id: q39
+  question: Which courses count as lecture-based for the CS major?
+  intent: policy
+  pages: [computer-science]
+
+- id: q40
+  question: What's required to get into Computer Science honours?
+  intent: policy
+  pages: [computer-science, introduction-degree-options]
+
+# ------------------------------------------------ should decline
+- id: d01
+  question: Is CPSC 320 easier than CPSC 322?
+  decline: true
+  intent: out_of_scope
+
+- id: d02
+  question: How many hours a week does CPSC 213 take?
+  decline: true
+  intent: out_of_scope
+
+- id: d03
+  question: Are there any seats left in CPSC 310 for January?
+  decline: true
+  intent: out_of_scope
+
+- id: d04
+  question: Did I pass MATH 104 last term?
+  decline: true
+  intent: out_of_scope
+
+- id: d05
+  question: Will UVic's CSC 225 transfer as CPSC 221?
+  decline: true
+  intent: out_of_scope
+
+- id: d06
+  question: Where's the best coffee near the Nest?
+  decline: true
+  intent: out_of_scope
+
+- id: d07
+  question: Can I take CPSC 999 if I've done CPSC 110?
+  decline: true
+
+- id: d08
+  question: Can I register for COSC 304 at UBC Vancouver?
+  decline: true
+
+- id: d09
+  question: How much is tuition for a Computer Science degree?
+  decline: true
+
+- id: d10
+  question: Plan out all my courses for the next four years.
+  decline: true
+  intent: out_of_scope
