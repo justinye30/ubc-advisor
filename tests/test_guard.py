@@ -385,3 +385,10 @@ def test_leading_list():
     assert leading_list(" either CPSC 221 or DSCI 221 right now") == ["CPSC 221", "DSCI 221"]
     assert leading_list(" CPSC 213 now since you've finished CPSC 210") == ["CPSC 213"]
     assert leading_list(" nothing here") == []
+
+
+def test_neither_of_which_is_a_negative_history_claim():
+    assert flags(PATH_404, "Before CPSC 404, you need CPSC 304 and CPSC 213, "
+                           "neither of which you've completed.") == []
+    assert flags(PATH_404, "You need CPSC 210 and CPSC 304, neither of which you've completed.") == [
+        "says the student hasn't completed CPSC 210, but they have"]

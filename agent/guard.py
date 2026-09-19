@@ -72,7 +72,9 @@ CALENDAR_SILENT = re.compile(
 HISTORY_POSITIVE = re.compile(
     r"\byou(?:'ve| have)? (?:already )?(?:completed|taken|passed|finished|done)\b", re.IGNORECASE)
 HISTORY_NEGATIVE = re.compile(
-    r"\byou (?:haven't|have not|didn't|did not) (?:yet )?(?:completed|taken|passed|finished|done)\b",
+    r"\byou (?:haven't|have not|didn't|did not) (?:yet )?(?:completed|taken|passed|finished|done)\b"
+    r"|\b(?:neither|none) of (?:which|those|them|these) you(?:'ve| have)? (?:yet )?"
+    r"(?:completed|taken|passed|finished|done)\b",
     re.IGNORECASE)
 
 # Advice wording that a cited calendar source can legitimately carry.
