@@ -670,3 +670,76 @@ Running log of choices made and why. Newest at the bottom.
 - **Known limits:** q16's bare-number ambiguity is unresolved by design;
   guard precision was tuned against flags read by hand, so precision on
   unseen phrasings is sampled, not proven.
+
+## Week 3 retrieval tuning: skipped (2026-09-18)
+
+- No measured retrieval failure to tune against: 12/12 policy questions
+  correct end to end, recall@5 1.00 on 15. The two earlier misses were label
+  errors. Tuning chunk size or depth now would fit the eval set, not fix a
+  problem.
+- The known gap is corpus coverage (q38, d09), not retrieval quality.
+
+## Deployment and access (2026-09-18)
+
+- **Deployed privately, not published.** Hosting on my own AWS account doesn't
+  change the Terms of Use analysis: clause (a) restricts redistribution, and a
+  single-user deployment behind authentication is personal use.
+- **Access:** ALB authenticates via Cognito (self-signup disabled, one user).
+  ECS tasks accept traffic only from the ALB security group.
+- **Data to production:** pg_dump restored to RDS. The dump is never committed,
+  never baked into an image, and not left in S3.
+- **Spend:** Anthropic and Voyage spend limits, AWS Budgets alert.
+- **Lifecycle:** Fargate + RDS + ALB built, demoed (screen recording), then torn
+  down.
+
+## Calendar text removed from the repo (2026-09-18)
+
+- `eval/results/` held composed answers and retrieved policy chunks verbatim.
+  Removed from all history with git filter-repo, force-pushed, and gitignored.
+  Results are kept locally; headline numbers live in this file.
+- `golden_courses.yaml` lost its `text:` field (verbatim prerequisite text,
+  read by no code). `label.py` prints it from the database when labeling.
+- Test fixtures keep their short, hand-written excerpts.
+
+## Step 17: API (2026-09-18)
+
+- **One connection pool per process** (psycopg_pool), shared by repo, graph,
+  retrieval and query logging. Created lazily so each gunicorn worker builds
+  its own after the fork. In a local test, 600 checkouts from 32 threads used
+  4 connections.
+- **Embed before borrowing a connection:** search_policy used to hold a
+  connection through the embedding call (~20s under the throttle).
+- **Timeouts at every network call:** Anthropic 15s x 2 attempts (SDK default
+  was 10 min, 3 attempts), Voyage 10s x 1 retry for web requests (ingestion
+  keeps 60s x 6), Postgres statement_timeout 5s.
+- **Response is an allow-list:** retrieved chunk text, composer facts, router
+  rationale and internal error strings stay server-side. `details` passes
+  handler fields through until Step 18 shows which the UI needs.
+- **/health does no I/O** (load balancer target); /health/ready checks that
+  data is loaded.
+- **gunicorn gthread, 2 workers x 4 threads** in dev and prod, replacing
+  the Flask server with debug=True (the Werkzeug console executes code).
+- **Missing API key is a TypeError, not an APIError:** it bypasses the
+  graph's error handling. The endpoint's catch-all returns a clean 503.
+- **query_logs id returned as log_id**, so a bad answer in the UI maps to
+  its log row.
+- **Voyage payment added; throttle off** (EMBED_RPM=0, EMBED_TPM=0).
+
+- **End to end after Step 17 (pipeline a15e80f86f, unchanged):** routing
+  47/47; answers 39/40; refusals 10/10; false refusals 0; guard not needed 12,
+  passed 33, regenerated 5, 0 violations shipped. Same prompts as the
+  baseline, so the +1/+1 is variance on the known q16 ambiguity, not
+  improvement.
+- **Latency: p50 4.7s, p95 9.7s (was 21.3s), max 14.0s.** The throttle was
+  the whole p95.
+
+- **Guard flags from this run, read by hand (5):** q03 real but flagged for
+  the wrong reason (it invented "higher-level math"; the guard matched
+  "higher grade"; nothing checks the actual invention); q18 real (unscoped
+  absence); q38 real (the same "6 credits numbered 500+" catch as Step 16);
+  q19 a false positive.
+- **q19 fix:** "neither of which you've completed" was read as a completion
+  claim. It's now a negative history claim, verified against the transcript
+  like "you haven't completed", rather than silenced. A regression test covers
+  both the true and false forms. Running total: 26 flags read by hand.
+- Tests: 308.
