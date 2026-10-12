@@ -760,3 +760,24 @@ Running log of choices made and why. Newest at the bottom.
 - **details allow-listed per kind** (was pass-through since Step 17).
 - **CSP default-src 'self'**; fonts bundled, so no third-party requests.
 - Tests: 311 Python, 10 front-end.
+
+## Step 19: Production image and AWS (2026-10-12)
+
+- **Terraform for the whole stack** (infra/): build-demo-destroy is the plan,
+  and destroy is one command. Local state, gitignored.
+- **Multi-stage image:** Node builds the UI, the final image has Python only.
+  Runs as uid 1000, not root (also fixes root-owned dev caches). Only agent/,
+  api/, core/ and the built UI are copied in.
+- **No NAT gateway** (~$35/mo): tasks get a public IP; the app accepts port
+  8000 from my IP only, the database only from the app's security group.
+- **RDS Postgres 16 + pgvector, loaded from pg_dump**, never by running
+  ingestion in the cloud. The dump leaves out scraped pages (raw_pages) and
+  query logs. The DB is public only during the restore, to my IP, then closed.
+- **Secrets:** DATABASE_URL written by Terraform; API keys put in with the
+  CLI so they never enter Terraform state. Injected by ECS as env vars; no
+  app code changed.
+- **Two IAM roles:** execution role (pull image, read two secrets, logs);
+  task role has only ECS Exec. The app needs no AWS permissions.
+- **Service starts at 0 tasks**; make aws-start/stop own the count. Circuit
+  breaker rolls back failed deployments. Immutable image tags = git commits.
+- **Cost:** ~$35-40/mo running, ~$4/mo stopped.
