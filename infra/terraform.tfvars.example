@@ -3,4 +3,7 @@
 # curl -s https://checkip.amazonaws.com  → add /32
 my_ip = "203.0.113.7/32"
 
+# Where the app will live: a subdomain of a domain you control (Step 20)
+domain_name = "advisor.justinye.xyz"
+
 # region = "ca-central-1"

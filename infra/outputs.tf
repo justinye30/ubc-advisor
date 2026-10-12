@@ -29,3 +29,29 @@ output "api_keys_secret_id" {
 output "log_group" {
   value = aws_cloudwatch_log_group.app.name
 }
+
+output "app_url" {
+  value = "https://${var.domain_name}"
+}
+
+output "user_pool_id" {
+  value = aws_cognito_user_pool.main.id
+}
+
+# The two DNS records to add where justinye.xyz's DNS is hosted.
+output "dns_records" {
+  value = concat(
+    [for o in aws_acm_certificate.app.domain_validation_options : {
+      purpose = "certificate validation (keep it: ACM renews with it)"
+      type    = o.resource_record_type
+      name    = o.resource_record_name
+      value   = o.resource_record_value
+    }],
+    [{
+      purpose = "the app"
+      type    = "CNAME"
+      name    = "${var.domain_name}."
+      value   = aws_lb.main.dns_name
+    }],
+  )
+}

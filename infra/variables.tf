@@ -18,6 +18,24 @@ variable "my_ip" {
     condition     = can(cidrhost(var.my_ip, 0)) && endswith(var.my_ip, "/32")
     error_message = "Use a single address in CIDR form, like 203.0.113.7/32."
   }
+
+  # 203.0.113.0/24 is reserved for documentation, so it can only be the
+  # example file's placeholder. Step 19's first restore failed on exactly this.
+  validation {
+    condition     = !startswith(var.my_ip, "203.0.113.")
+    error_message = "my_ip is still the example placeholder. Use: curl -s https://checkip.amazonaws.com"
+  }
+}
+
+variable "domain_name" {
+  description = "Where the app lives, e.g. advisor.justinye.xyz. You add two DNS records for it (make aws-dns)."
+  type        = string
+}
+
+variable "session_hours" {
+  description = "How long a login lasts before Cognito asks again."
+  type        = number
+  default     = 8
 }
 
 variable "image_tag" {
@@ -25,6 +43,9 @@ variable "image_tag" {
   type        = string
   default     = "none"
 }
+
+# my_ip is still used for the database restore. Since Step 20 the app is
+# reached through the load balancer and a login, not by IP.
 
 variable "db_public" {
   description = "Give the database a public endpoint (still limited to my_ip). On only while restoring the dump."

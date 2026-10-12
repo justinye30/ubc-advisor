@@ -53,21 +53,63 @@ resource "aws_route_table_association" "public" {
 
 # ------------------------------------------------------------ security groups
 
-# The app: port 8000 from your IP only. Step 20 replaces this rule with
-# "from the load balancer only".
-resource "aws_security_group" "app" {
-  name        = "${var.name}-app"
-  description = "App tasks"
+# The load balancer: the only thing on the internet. HTTPS for the app,
+# HTTP only to redirect to HTTPS. Anyone can reach the login page; the
+# Cognito login, not an IP list, decides who gets past it.
+resource "aws_security_group" "alb" {
+  name        = "${var.name}-alb"
+  description = "Load balancer"
   vpc_id      = aws_vpc.main.id
 }
 
-resource "aws_vpc_security_group_ingress_rule" "app_from_me" {
-  security_group_id = aws_security_group.app.id
-  description       = "API and UI from my IP"
-  cidr_ipv4         = var.my_ip
+resource "aws_vpc_security_group_ingress_rule" "alb_https" {
+  security_group_id = aws_security_group.alb.id
+  description       = "HTTPS from anywhere"
+  cidr_ipv4         = "0.0.0.0/0"
   ip_protocol       = "tcp"
-  from_port         = 8000
-  to_port           = 8000
+  from_port         = 443
+  to_port           = 443
+}
+
+resource "aws_vpc_security_group_ingress_rule" "alb_http" {
+  security_group_id = aws_security_group.alb.id
+  description       = "HTTP, redirected to HTTPS"
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "tcp"
+  from_port         = 80
+  to_port           = 80
+}
+
+resource "aws_vpc_security_group_egress_rule" "alb_to_app" {
+  security_group_id            = aws_security_group.alb.id
+  description                  = "Forward to app tasks"
+  referenced_security_group_id = aws_security_group.app.id
+  ip_protocol                  = "tcp"
+  from_port                    = 8000
+  to_port                      = 8000
+}
+
+# The authenticate-cognito action makes the load balancer itself call
+# Cognito's token endpoint, so it needs HTTPS out to the internet.
+resource "aws_vpc_security_group_egress_rule" "alb_to_cognito" {
+  security_group_id = aws_security_group.alb.id
+  description       = "Cognito token and user-info endpoints"
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "tcp"
+  from_port         = 443
+  to_port           = 443
+}
+
+# The app: port 8000 from the load balancer only. The task still has a
+# public IP (for outbound calls, instead of a NAT gateway), but nothing can
+# connect to it directly, so the login can't be bypassed.
+resource "aws_vpc_security_group_ingress_rule" "app_from_alb" {
+  security_group_id            = aws_security_group.app.id
+  description                  = "From the load balancer only"
+  referenced_security_group_id = aws_security_group.alb.id
+  ip_protocol                  = "tcp"
+  from_port                    = 8000
+  to_port                      = 8000
 }
 
 resource "aws_vpc_security_group_egress_rule" "app_out" {

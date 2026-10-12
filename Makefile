@@ -1,4 +1,4 @@
-.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli fetch-policy chunk embed search eval-retrieval rebuild-edges ask eval-routing eval-entities eval-composer eval-e2e smoke web-install web-dev web-mock web-build web-test db-dump db-restore aws-keys aws-deploy aws-start aws-stop aws-url aws-logs aws-shell aws-destroy
+.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli fetch-policy chunk embed search eval-retrieval rebuild-edges ask eval-routing eval-entities eval-composer eval-e2e smoke web-install web-dev web-mock web-build web-test db-dump db-restore aws-keys aws-deploy aws-start aws-stop aws-url aws-logs aws-shell aws-destroy aws-dns aws-user
 
 up:            ## start the stack (foreground)
 	docker compose up --build
@@ -94,7 +94,7 @@ web-build:     ## build web/dist; Flask then serves the UI at localhost:8000
 web-test:      ## front-end unit tests
 	cd web && npm test
 
-# --- AWS (Step 19). Needs the AWS CLI (default region set) and Terraform. ---
+# --- AWS (Steps 19-20). Needs the AWS CLI (default region set) and Terraform. ---
 TF    = terraform -chdir=infra
 TFOUT = terraform -chdir=infra output -raw
 SHA   = $(shell git rev-parse --short HEAD)
@@ -137,22 +137,33 @@ aws-deploy:    ## build the current commit, push it to ECR, and roll it out
 	$(TF) apply
 	aws ecs wait services-stable --cluster $$($(TFOUT) cluster) --services $$($(TFOUT) service)
 
+aws-dns:       ## create the certificate and load balancer, then print the 2 DNS records to add
+	$(TF) apply -target=aws_acm_certificate.app -target=aws_lb.main
+	@$(TF) output dns_records
+
+aws-user:      ## create your login: make aws-user EMAIL=you@example.com (Cognito emails a temporary password)
+	@test -n "$(EMAIL)" || { echo "Usage: make aws-user EMAIL=you@example.com"; exit 1; }
+	aws cognito-idp admin-create-user --user-pool-id $$($(TFOUT) user_pool_id) \
+	  --username "$(EMAIL)" --desired-delivery-mediums EMAIL \
+	  --user-attributes Name=email,Value="$(EMAIL)" Name=email_verified,Value=true \
+	  --query User.UserStatus --output text
+
 aws-start:     ## start the database (if stopped) and one app task, then print its URL
 	-aws rds start-db-instance --db-instance-identifier $$($(TFOUT) db_identifier) >/dev/null 2>&1
 	aws rds wait db-instance-available --db-instance-identifier $$($(TFOUT) db_identifier)
 	aws ecs update-service --cluster $$($(TFOUT) cluster) --service $$($(TFOUT) service) \
 	  --desired-count 1 --query service.desiredCount --output text
 	aws ecs wait services-stable --cluster $$($(TFOUT) cluster) --services $$($(TFOUT) service)
-	@infra/task-url.sh
+	@$(TFOUT) app_url; echo
 
-aws-stop:      ## stop the app task and the database (RDS restarts itself after 7 days)
+aws-stop:      ## stop the app task and the database (the load balancer keeps billing: destroy when done)
 	aws ecs update-service --cluster $$($(TFOUT) cluster) --service $$($(TFOUT) service) \
 	  --desired-count 0 --query service.desiredCount --output text
 	aws rds stop-db-instance --db-instance-identifier $$($(TFOUT) db_identifier) \
 	  --query DBInstance.DBInstanceStatus --output text
 
-aws-url:       ## print the running task's URL
-	@infra/task-url.sh
+aws-url:       ## print the app's URL
+	@$(TFOUT) app_url; echo
 
 aws-logs:      ## follow the app's logs in CloudWatch
 	aws logs tail $$($(TFOUT) log_group) --follow --since 30m

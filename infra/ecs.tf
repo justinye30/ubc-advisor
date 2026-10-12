@@ -159,6 +159,16 @@ resource "aws_ecs_service" "app" {
 
   enable_execute_command = true
 
+  # Tasks register with the load balancer's target group. The grace period
+  # stops the load balancer's health checks from failing a task that is
+  # still starting up.
+  load_balancer {
+    target_group_arn = aws_lb_target_group.app.arn
+    container_name   = "app"
+    container_port   = 8000
+  }
+  health_check_grace_period_seconds = 60
+
   network_configuration {
     subnets          = aws_subnet.public[*].id
     security_groups  = [aws_security_group.app.id]
@@ -174,4 +184,7 @@ resource "aws_ecs_service" "app" {
   lifecycle {
     ignore_changes = [desired_count]
   }
+
+  # The target group must be attached to a listener before a service can use it.
+  depends_on = [aws_lb_listener.https]
 }

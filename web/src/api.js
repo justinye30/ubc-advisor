@@ -36,11 +36,17 @@ export async function ask(question, { signal } = {}) {
     throw new AskError("Can't reach the server. Check that the API is running, then try again.");
   }
 
+  // The load balancer answers API calls with a bare 401 once the login
+  // session runs out (Step 20). Reloading the page goes through the login.
+  if (res.status === 401) {
+    throw new AskError("Your login has expired. Reload the page to sign in again.", { status: 401 });
+  }
+
   let body = null;
   try {
     body = await res.json();
   } catch {
-    // not JSON: a proxy error page, or a login redirect once Cognito is in front
+    // not JSON: an error page from the load balancer, not from the app
   }
   if (!res.ok || body === null) {
     throw new AskError(body?.error?.message ?? `The server responded with ${res.status}.`, {
