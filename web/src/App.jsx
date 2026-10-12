@@ -1,9 +1,9 @@
 import { useCallback, useRef, useState } from "react";
-import { ask, AskError } from "./api.js";
+import { ask, AskError, MOCK } from "./api.js";
 import AskForm from "./components/AskForm.jsx";
 import Entry from "./components/Entry.jsx";
 
-const EXAMPLES = [
+const EXAMPLES = import.meta.env.MODE === "mock" ? (await import("./mock.js")).MOCK_QUESTIONS : [
   "I did CPSC 110, 121 and 210. Can I take CPSC 221?",
   "What does CPSC 213 unlock?",
   "Can I retake a course I already passed?",
@@ -53,6 +53,11 @@ export default function App() {
           <p className="mt-1 text-sm text-muted">
             Prerequisites and academic policy from the 2026/27 UBC Vancouver Academic Calendar.
           </p>
+          {MOCK && (
+            <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-unsure">
+              Mock mode: canned answers, no API calls
+            </p>
+          )}
         </div>
       </header>
 

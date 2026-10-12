@@ -1,4 +1,4 @@
-.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli fetch-policy chunk embed search eval-retrieval rebuild-edges ask eval-routing eval-entities eval-composer eval-e2e smoke web-install web-dev web-build web-test
+.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli fetch-policy chunk embed search eval-retrieval rebuild-edges ask eval-routing eval-entities eval-composer eval-e2e smoke web-install web-dev web-mock web-build web-test
 
 up:            ## start the stack (foreground)
 	docker compose up --build
@@ -84,6 +84,9 @@ web-install:   ## install front-end dependencies exactly as locked
 
 web-dev:       ## Vite dev server on :5173, proxying /api to Flask on :8000
 	cd web && npm run dev
+
+web-mock:      ## Vite dev server with canned answers: no Flask, no API calls
+	cd web && npm run dev:mock
 
 web-build:     ## build web/dist; Flask then serves the UI at localhost:8000
 	cd web && npm run build

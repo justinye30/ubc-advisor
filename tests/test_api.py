@@ -36,7 +36,7 @@ def client():
     app = create_app(ask_fn=fake_ask)
     app.testing = True
     c = app.test_client()
-    c.calls = calls
+    c.calls = calls  # type: ignore[attr-defined]
     return c
 
 

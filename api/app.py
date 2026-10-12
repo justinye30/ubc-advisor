@@ -55,6 +55,11 @@ def error(status: int, code: str, message: str):
                           "request_id": g.get("request_id")}), status
 
 
+def _count(conn, sql: str) -> int:
+    row = conn.execute(sql).fetchone()
+    return row["n"] if row else 0
+
+
 def _setup_cors(app: Flask) -> None:
     """Cross-origin access only for origins listed in CORS_ORIGINS.
 
@@ -132,10 +137,9 @@ def create_app(ask_fn=ask, web_dist: Path = WEB_DIST) -> Flask:
             with connection() as conn:
                 ext = conn.execute(
                     "SELECT extversion FROM pg_extension WHERE extname = 'vector'").fetchone()
-                courses = conn.execute("SELECT count(*) AS n FROM courses").fetchone()["n"]
-                chunks = conn.execute(
-                    "SELECT count(*) AS n FROM policy_chunks WHERE embedding IS NOT NULL"
-                ).fetchone()["n"]
+                courses = _count(conn, "SELECT count(*) AS n FROM courses")
+                chunks = _count(
+                    conn, "SELECT count(*) AS n FROM policy_chunks WHERE embedding IS NOT NULL")
         except Exception:
             log.exception("request_id=%s readiness check failed", g.request_id)
             return error(503, "db_unavailable", "Database unreachable.")

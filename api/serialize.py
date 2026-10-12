@@ -10,6 +10,7 @@ This is an explicit contract, not a dump of internal state:
 """
 
 from dataclasses import asdict, is_dataclass
+from typing import Any
 
 from agent.present import DISCLAIMER
 
@@ -30,7 +31,7 @@ COURSE_FIELDS = ("code", "found", "title", "prereq_text", "source_url",
                  "verdict", "summary", "reasons")
 
 
-def plain(x):
+def plain(x) -> Any:
     """Make a value JSON-safe: sets and tuples become lists, dataclasses dicts."""
     if is_dataclass(x) and not isinstance(x, type):
         return plain(asdict(x))
@@ -55,7 +56,7 @@ def answer_body(text: str) -> str:
 
 def details(result: dict) -> dict:
     """The handler-specific part of the response, allow-listed per kind."""
-    out = {k: result[k] for k in DETAIL_FIELDS.get(result.get("kind"), ()) if k in result}
+    out = {k: result[k] for k in DETAIL_FIELDS.get(result.get("kind") or "", ()) if k in result}
     if "courses" in out:
         out["courses"] = [{k: c[k] for k in COURSE_FIELDS if k in c} for c in out["courses"]]
     return out

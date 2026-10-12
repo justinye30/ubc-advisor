@@ -1,5 +1,12 @@
 // The one place the UI talks to the server.
 
+// `npm run dev:mock`: canned answers from mock.js, no server or API calls.
+// Vite fixes MODE at build time, so a normal build drops the mock branches.
+// Where mock.js gets imported, test MODE inline rather than through MOCK:
+// only then is the import dropped too, instead of shipping an unused chunk.
+export const MOCK = import.meta.env.MODE === "mock";
+const MOCK_DELAY_MS = 900;
+
 const TIMEOUT_MS = 130_000; // a little over gunicorn's 120s, so the server gives up first
 
 export class AskError extends Error {
@@ -11,6 +18,7 @@ export class AskError extends Error {
 }
 
 export async function ask(question, { signal } = {}) {
+  if (import.meta.env.MODE === "mock") return mockAsk(question, signal);
   const timeout = AbortSignal.timeout(TIMEOUT_MS);
   let res;
   try {
@@ -41,4 +49,18 @@ export async function ask(question, { signal } = {}) {
     });
   }
   return body;
+}
+
+async function mockAsk(question, signal) {
+  const { pickMock } = await import("./mock.js");
+  const m = pickMock(question);
+  await new Promise((resolve, reject) => {
+    const t = setTimeout(resolve, m.delay ?? MOCK_DELAY_MS);
+    signal?.addEventListener("abort", () => {
+      clearTimeout(t);
+      reject(new DOMException("Stopped", "AbortError"));
+    }, { once: true });
+  });
+  if (m.error) throw new AskError(m.error.message, m.error);
+  return structuredClone(m.response);
 }
