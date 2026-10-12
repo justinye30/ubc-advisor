@@ -1,12 +1,29 @@
+# Version control, local environments, secrets
 .git
 .venv
 venv
+.env
+*.pem
+
+# Caches and builds (the image builds its own web/dist)
 __pycache__
 *.pyc
-node_modules
-data
-.env
 .pytest_cache
+.ruff_cache
+node_modules
 web/dist
+
+# Calendar-derived data and dumps must never be baked into an image
+data
 eval/results
 *.dump
+
+# Not needed to serve requests. The dev container still sees all of these
+# through its bind mount (docker-compose.yml), so make test/eval/fetch work.
+infra
+tests
+eval
+ingest
+scripts
+db
+*.md

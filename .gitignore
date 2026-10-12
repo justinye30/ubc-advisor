@@ -25,3 +25,11 @@ dist/
 # Eval outputs contain composed answers and retrieved calendar text.
 # Kept locally; headline numbers live in DECISIONS.md.
 eval/results/
+
+# Terraform: providers, state (contains the database password), your IP,
+# and the per-deploy image tag
+infra/.terraform/
+*.tfstate
+*.tfstate.*
+infra/terraform.tfvars
+infra/*.auto.tfvars

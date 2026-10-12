@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars (gitignored) and fill in.
+
+# curl -s https://checkip.amazonaws.com  → add /32
+my_ip = "203.0.113.7/32"
+
+# region = "ca-central-1"

@@ -1,4 +1,4 @@
-.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli fetch-policy chunk embed search eval-retrieval rebuild-edges ask eval-routing eval-entities eval-composer eval-e2e smoke web-install web-dev web-mock web-build web-test
+.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli fetch-policy chunk embed search eval-retrieval rebuild-edges ask eval-routing eval-entities eval-composer eval-e2e smoke web-install web-dev web-mock web-build web-test db-dump db-restore aws-keys aws-deploy aws-start aws-stop aws-url aws-logs aws-shell aws-destroy
 
 up:            ## start the stack (foreground)
 	docker compose up --build
@@ -93,3 +93,75 @@ web-build:     ## build web/dist; Flask then serves the UI at localhost:8000
 
 web-test:      ## front-end unit tests
 	cd web && npm test
+
+# --- AWS (Step 19). Needs the AWS CLI (default region set) and Terraform. ---
+TF    = terraform -chdir=infra
+TFOUT = terraform -chdir=infra output -raw
+SHA   = $(shell git rev-parse --short HEAD)
+
+db-dump:       ## dump the local database for AWS (no scraped pages, no query logs)
+	mkdir -p data
+	docker compose exec -T db pg_dump -U advisor -d advisor -Fc --no-owner --no-acl \
+	  --exclude-table-data=raw_pages --exclude-table-data=query_logs > data/advisor.dump
+	@ls -lh data/advisor.dump
+
+db-restore:    ## load data/advisor.dump into RDS (opens the DB to your IP, then closes it)
+	@test -s data/advisor.dump || { echo "No dump yet: run make db-dump"; exit 1; }
+	$(TF) apply -var db_public=true \
+	  -target=aws_db_instance.main -target=aws_vpc_security_group_ingress_rule.db_from_me
+	URL=$$(aws secretsmanager get-secret-value --secret-id $$($(TFOUT) db_secret_id) \
+	  --query SecretString --output text); \
+	docker compose exec -T db pg_restore --no-owner --no-acl -d "$$URL" < data/advisor.dump; \
+	status=$$?; \
+	$(TF) apply -target=aws_db_instance.main -target=aws_vpc_security_group_ingress_rule.db_from_me; \
+	exit $$status
+
+aws-keys:      ## copy ANTHROPIC_API_KEY and VOYAGE_API_KEY from .env into Secrets Manager
+	python3 -c 'import json; from dotenv import dotenv_values as d; e = d(".env"); \
+	  print(json.dumps({k: e[k] for k in ("ANTHROPIC_API_KEY", "VOYAGE_API_KEY")}))' \
+	| aws secretsmanager put-secret-value --secret-id $$($(TFOUT) api_keys_secret_id) \
+	    --secret-string file:///dev/stdin --query VersionId --output text
+
+aws-deploy:    ## build the current commit, push it to ECR, and roll it out
+	@git diff --quiet && git diff --cached --quiet || \
+	  { echo "Commit first: the image is tagged with the commit."; exit 1; }
+	REPO=$$($(TFOUT) ecr_repository_url); \
+	if aws ecr describe-images --repository-name $${REPO##*/} --image-ids imageTag=$(SHA) >/dev/null 2>&1; then \
+	  echo "$(SHA) is already in ECR"; \
+	else \
+	  docker build --platform linux/amd64 -t $$REPO:$(SHA) . && \
+	  aws ecr get-login-password | docker login --username AWS --password-stdin $${REPO%%/*} && \
+	  docker push $$REPO:$(SHA); \
+	fi
+	echo 'image_tag = "$(SHA)"' > infra/image.auto.tfvars
+	$(TF) apply
+	aws ecs wait services-stable --cluster $$($(TFOUT) cluster) --services $$($(TFOUT) service)
+
+aws-start:     ## start the database (if stopped) and one app task, then print its URL
+	-aws rds start-db-instance --db-instance-identifier $$($(TFOUT) db_identifier) >/dev/null 2>&1
+	aws rds wait db-instance-available --db-instance-identifier $$($(TFOUT) db_identifier)
+	aws ecs update-service --cluster $$($(TFOUT) cluster) --service $$($(TFOUT) service) \
+	  --desired-count 1 --query service.desiredCount --output text
+	aws ecs wait services-stable --cluster $$($(TFOUT) cluster) --services $$($(TFOUT) service)
+	@infra/task-url.sh
+
+aws-stop:      ## stop the app task and the database (RDS restarts itself after 7 days)
+	aws ecs update-service --cluster $$($(TFOUT) cluster) --service $$($(TFOUT) service) \
+	  --desired-count 0 --query service.desiredCount --output text
+	aws rds stop-db-instance --db-instance-identifier $$($(TFOUT) db_identifier) \
+	  --query DBInstance.DBInstanceStatus --output text
+
+aws-url:       ## print the running task's URL
+	@infra/task-url.sh
+
+aws-logs:      ## follow the app's logs in CloudWatch
+	aws logs tail $$($(TFOUT) log_group) --follow --since 30m
+
+aws-shell:     ## shell inside the running container (needs the Session Manager plugin)
+	TASK=$$(aws ecs list-tasks --cluster $$($(TFOUT) cluster) --service-name $$($(TFOUT) service) \
+	  --query 'taskArns[0]' --output text); \
+	aws ecs execute-command --cluster $$($(TFOUT) cluster) --task $$TASK --container app \
+	  --interactive --command /bin/sh
+
+aws-destroy:   ## delete everything in AWS (asks first)
+	$(TF) destroy
