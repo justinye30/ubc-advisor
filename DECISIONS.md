@@ -743,3 +743,20 @@ Running log of choices made and why. Newest at the bottom.
   like "you haven't completed", rather than silenced. A regression test covers
   both the true and false forms. Running total: 26 flags read by hand.
 - Tests: 308.
+
+## Step 18: Web UI (2026-10-11)
+
+- **React + Tailwind (Vite)**, one page. Dev uses the Vite proxy; built files
+  are served by Flask from the same origin as the API: no CORS, and the
+  Step 20 login cookie covers both.
+- **Logic in pure helpers** (lib.js, unit-tested): citation parsing, verdict
+  words, rewriting a question after a clarification. Components only arrange.
+- **The verdict comes from the evaluator; the UI only picks the word.**
+  Prose is shown alongside the requirement check and "how I read your
+  question", so a misread or a drift is visible on the page.
+- **Clarification re-asks the rewritten question** through the full
+  pipeline rather than adding a special API path.
+- **Honest loading state:** elapsed time and the usual range, no fake progress.
+- **details allow-listed per kind** (was pass-through since Step 17).
+- **CSP default-src 'self'**; fonts bundled, so no third-party requests.
+- Tests: 311 Python, 10 front-end.
