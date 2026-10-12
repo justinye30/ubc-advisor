@@ -1,6 +1,20 @@
+import { useLayoutEffect, useRef } from "react";
+import { ArrowUp, Stop } from "./Icons.jsx";
+
 const MAX = 500; // matches the API's limit, so the server never has to reject length
+const MAX_HEIGHT = 200; // px; past this the box scrolls instead of growing
 
 export default function AskForm({ value, onChange, onSubmit, onCancel, pending }) {
+  const box = useRef(null);
+
+  // Grow with the text, like most chat boxes, up to MAX_HEIGHT.
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT)}px`;
+  }, [value]);
+
   const send = (e) => {
     e.preventDefault();
     if (!pending && value.trim()) onSubmit(value);
@@ -14,43 +28,54 @@ export default function AskForm({ value, onChange, onSubmit, onCancel, pending }
   const remaining = MAX - value.length;
 
   return (
-    <form onSubmit={send} className="mt-6">
-      <label htmlFor="question" className="font-serif text-lg">
+    <form onSubmit={send}>
+      <label htmlFor="question" className="sr-only">
         Ask about a course or a rule
       </label>
-      <textarea
-        id="question"
-        rows={3}
-        maxLength={MAX}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={onKeyDown}
-        placeholder="I got 72 in MATH 226 and passed CPSC 210. Can I take CPSC 221?"
-        className="mt-2 block w-full resize-y rounded-md border border-rule bg-surface px-3 py-2.5 text-base leading-relaxed placeholder:text-muted/70"
-      />
-      <div className="mt-2 flex items-center gap-3">
-        {pending ? (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-md border border-rule bg-surface px-4 py-2 text-sm font-medium"
-          >
-            Stop
-          </button>
-        ) : (
-          <button
-            type="submit"
-            disabled={!value.trim()}
-            className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-surface disabled:opacity-40"
-          >
-            Ask
-          </button>
-        )}
-        {remaining < 80 && (
-          <span className={`text-sm ${remaining < 20 ? "text-no" : "text-muted"}`} aria-live="polite">
-            {remaining} characters left
+      <div className="rounded-2xl border border-rule bg-surface shadow-lg shadow-black/30 focus-within:border-accent/60">
+        <textarea
+          ref={box}
+          id="question"
+          rows={1}
+          maxLength={MAX}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={onKeyDown}
+          placeholder="Ask about a course or a rule…"
+          className="block max-h-[200px] w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-[15px] leading-relaxed outline-none placeholder:text-muted/80"
+        />
+        <div className="flex items-center gap-3 px-3 pb-3">
+          <span className="text-xs text-muted">
+            {remaining < 80 ? (
+              <span className={`tabular-nums ${remaining < 20 ? "text-no" : ""}`} aria-live="polite">
+                {remaining} characters left
+              </span>
+            ) : (
+              <span className="hidden sm:inline">Enter to send, Shift + Enter for a new line</span>
+            )}
           </span>
-        )}
+          {pending ? (
+            <button
+              type="button"
+              onClick={onCancel}
+              aria-label="Stop"
+              title="Stop"
+              className="ml-auto grid size-9 place-items-center rounded-full bg-ink text-ground hover:bg-ink/85"
+            >
+              <Stop className="size-4" />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!value.trim()}
+              aria-label="Ask"
+              title="Ask"
+              className="ml-auto grid size-9 place-items-center rounded-full bg-accent-strong text-white hover:bg-accent-strong/85 disabled:bg-bubble disabled:text-muted"
+            >
+              <ArrowUp className="size-5" />
+            </button>
+          )}
+        </div>
       </div>
     </form>
   );

@@ -11,9 +11,9 @@ export default function Context({ context: c }) {
   if (!c.transcript_given && !notes.length && !c.year && !c.programs?.length) return null;
 
   return (
-    <section className="mt-6">
-      <h3 className="font-serif text-base font-semibold">How I read your question</h3>
-      <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm">
+    <section className="mt-5 rounded-xl border border-rule bg-surface p-4">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">How I read your question</h3>
+      <dl className="mt-2.5 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm">
         {c.transcript_given && (
           <>
             <dt className="text-muted">Completed</dt>

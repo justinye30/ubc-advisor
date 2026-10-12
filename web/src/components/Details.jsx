@@ -12,9 +12,9 @@ export default function Details({ r }) {
 
 function Section({ title, children }) {
   return (
-    <section className="mt-6">
-      <h3 className="font-serif text-base font-semibold">{title}</h3>
-      <div className="mt-2 text-sm leading-relaxed">{children}</div>
+    <section className="mt-5 rounded-xl border border-rule bg-surface p-4">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">{title}</h3>
+      <div className="mt-2.5 text-sm leading-relaxed">{children}</div>
     </section>
   );
 }
@@ -44,7 +44,7 @@ function Requirements({ courses }) {
   return (
     <Section title="Requirement check">
       {found.map((c) => (
-        <div key={c.code} className="mt-3 first:mt-0">
+        <div key={c.code} className="mt-4 first:mt-0">
           {found.length > 1 && <p className="font-medium">{c.code}</p>}
           {c.reasons?.length > 0 && (
             <ul className="space-y-1">
@@ -57,7 +57,7 @@ function Requirements({ courses }) {
             </ul>
           )}
           {c.prereq_text && (
-            <blockquote className="mt-2 border-l-2 border-rule pl-3 text-muted">
+            <blockquote className="mt-3 border-l-2 border-accent/40 pl-3 text-muted">
               Calendar wording: {c.prereq_text}
             </blockquote>
           )}
@@ -95,8 +95,8 @@ function Path({ d }) {
       <Codes label="Ready to take now" codes={d.ready_now} />
       {d.tree?.length > 0 && (
         <details className="mt-3">
-          <summary className="cursor-pointer text-accent">Full prerequisite tree</summary>
-          <pre className="mt-2 overflow-x-auto rounded-md border border-rule bg-surface p-3 text-xs leading-relaxed">
+          <summary className="cursor-pointer text-accent hover:underline">Full prerequisite tree</summary>
+          <pre className="mt-2 overflow-x-auto rounded-lg border border-rule bg-ground p-3 text-xs leading-relaxed">
             {d.tree.join("\n")}
           </pre>
         </details>

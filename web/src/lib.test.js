@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { applyClarification, paragraphs, splitCitations, verdictsOf, withGrades } from "./lib.js";
+import { applyClarification, paragraphs, sourceLabel, splitCitations, verdictsOf, withGrades } from "./lib.js";
 
 describe("splitCitations", () => {
   test("separates markers from prose", () => {
@@ -52,4 +52,9 @@ describe("verdictsOf", () => {
 test("paragraphs and grades", () => {
   expect(paragraphs("a\n\n b \n\n\n")).toEqual(["a", "b"]);
   expect(withGrades(["MATH 226", "CPSC 210"], { "MATH 226": "72" })).toEqual(["MATH 226 (72)", "CPSC 210"]);
+});
+
+test("sourceLabel puts the specific section first", () => {
+  expect(sourceLabel("B.Sc. > Promotion > 3rd-Year Standing")).toEqual({ main: "3rd-Year Standing", trail: "B.Sc. › Promotion" });
+  expect(sourceLabel("CPSC 221 — Basic Algorithms")).toEqual({ main: "CPSC 221 — Basic Algorithms", trail: "" });
 });

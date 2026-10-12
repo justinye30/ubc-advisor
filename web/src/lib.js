@@ -60,3 +60,13 @@ export function verdictsOf(response) {
 export function withGrades(codes = [], grades = {}) {
   return codes.map((c) => (grades[c] ? `${c} (${grades[c]})` : c));
 }
+
+/**
+ * A source label split for a compact chip: the specific part first, the
+ * path to it after. "B.Sc. > Repeating > Rules" → { main: "Rules", trail: "B.Sc. › Repeating" }.
+ * Course labels ("CPSC 221 — Basic Algorithms") have no path and stay whole.
+ */
+export function sourceLabel(label = "") {
+  const parts = label.split(" > ").map((p) => p.trim()).filter(Boolean);
+  return { main: parts.at(-1) ?? "", trail: parts.slice(0, -1).join(" › ") };
+}
