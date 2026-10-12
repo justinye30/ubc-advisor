@@ -17,7 +17,17 @@ from agent.present import DISCLAIMER
 NOT_ANSWERS = {"needs_course", "needs_clarification", "course_not_found",
                "refused", "no_results", "error"}
 
-_HANDLED = {"kind", "status", "codes", "context", "message", "ambiguous", "hits"}
+# Handler fields the web UI renders, per kind. Everything else stays on the
+# server. Step 17 passed handler fields through; Step 18 showed which are used.
+DETAIL_FIELDS = {
+    "eligibility": ("courses", "subjects", "eligible", "no_prereq", "to_confirm", "counts"),
+    "path": ("title", "source_url", "verdict", "summary", "reasons",
+             "required_on_every_route", "ready_now", "tree", "hidden_okanagan"),
+    "unlock": ("title", "source_url", "required_by", "option_for", "already_taken",
+               "newly_eligible", "to_confirm", "still_blocked", "already_eligible"),
+}
+COURSE_FIELDS = ("code", "found", "title", "prereq_text", "source_url",
+                 "verdict", "summary", "reasons")
 
 
 def plain(x):
@@ -41,6 +51,14 @@ def answer_body(text: str) -> str:
     """
     body = text.strip().removesuffix(DISCLAIMER)
     return body.split("\n\nSources:\n", 1)[0].strip()
+
+
+def details(result: dict) -> dict:
+    """The handler-specific part of the response, allow-listed per kind."""
+    out = {k: result[k] for k in DETAIL_FIELDS.get(result.get("kind"), ()) if k in result}
+    if "courses" in out:
+        out["courses"] = [{k: c[k] for k in COURSE_FIELDS if k in c} for c in out["courses"]]
+    return out
 
 
 def to_response(state: dict) -> dict:
@@ -77,13 +95,5 @@ def to_response(state: dict) -> dict:
         body["refusal"] = {"message": result.get("message"),
                            "examples": result.get("examples", [])}
 
-    # Handler-specific fields (verdicts, reasons, paths, unlock lists) pass
-    # through for now. Step 18 shows which ones the UI uses; then tighten.
-    body["details"] = plain({k: v for k, v in result.items()
-                             if k not in _HANDLED and k not in ("examples",)})
-    if result.get("kind") == "policy":
-        body["details"]["sections"] = [
-            {"section_path": h["section_path"], "source_url": h["source_url"]}
-            for h in result.get("hits", [])
-        ]
+    body["details"] = details(result)
     return plain(body)

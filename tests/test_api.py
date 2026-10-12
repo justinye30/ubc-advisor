@@ -112,7 +112,7 @@ def test_response_keeps_internals_out():
     assert "VERBATIM POLICY TEXT" not in flat        # retrieved text stays server-side
     assert "FACTS THE MODEL SAW" not in flat         # composer input stays server-side
     assert "rationale" not in flat                   # router internals
-    assert body["details"]["sections"] == [{"section_path": "Regs > Repeating", "source_url": "u"}]
+    assert body["details"] == {}                     # policy answers cite via sources
     assert body["disclaimer"] == DISCLAIMER
 
 
@@ -134,5 +134,39 @@ def test_clarification_is_structured():
 
 
 def test_sets_become_lists():
-    body = to_response(_state(extra={"b", "a"}))
-    assert body["details"]["extra"] == ["a", "b"]
+    body = to_response(_state(kind="unlock", status="ok", required_by={"CPSC 313", "CPSC 310"}))
+    assert body["details"]["required_by"] == ["CPSC 310", "CPSC 313"]
+
+
+def test_details_are_allow_listed_per_kind():
+    body = to_response(_state(courses=[{
+        "code": "CPSC 221", "found": True, "verdict": "SATISFIED", "reasons": [],
+        "extraction_status": "parsed", "internal": "x"}], debug_only="y"))
+    assert body["details"] == {"courses": [
+        {"code": "CPSC 221", "found": True, "verdict": "SATISFIED", "reasons": []}]}
+
+
+# ------------------------------------------------------------------ web UI
+
+def _built(tmp_path):
+    (tmp_path / "assets").mkdir()
+    (tmp_path / "index.html").write_text("<!doctype html><div id=root></div>")
+    (tmp_path / "assets" / "index-abc123.js").write_text("console.log(1)")
+    return tmp_path
+
+
+def test_serves_built_ui_with_caching_and_csp(tmp_path):
+    c = create_app(ask_fn=lambda q: _state(), web_dist=_built(tmp_path)).test_client()
+    page = c.get("/")
+    assert page.status_code == 200 and b"root" in page.data
+    assert page.headers["Cache-Control"] == "no-cache"
+    assert "default-src 'self'" in page.headers["Content-Security-Policy"]
+    asset = c.get("/assets/index-abc123.js")
+    assert "immutable" in asset.headers["Cache-Control"]
+    assert c.get("/assets/../index.html").status_code == 404     # no path traversal
+
+
+def test_no_build_means_no_ui_routes(tmp_path):
+    c = create_app(ask_fn=lambda q: _state(), web_dist=tmp_path).test_client()
+    assert c.get("/").status_code == 404
+    assert c.get("/health").status_code == 200

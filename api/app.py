@@ -5,6 +5,7 @@
   GET  /health/ready  readiness: database reachable, pgvector present,
                       courses and embedded policy chunks loaded.
   POST /api/ask       {"question": "..."}  ->  answer, citations, context
+  GET  /              the built web UI (web/dist), when it exists
 
 Dev:   flask --app api.app run --debug          (docker compose does this)
 Prod:  gunicorn -c api/gunicorn_conf.py api.app:app
@@ -14,8 +15,9 @@ import logging
 import os
 import time
 import uuid
+from pathlib import Path
 
-from flask import Flask, g, jsonify, request
+from flask import Flask, g, jsonify, request, send_from_directory
 from werkzeug.exceptions import HTTPException
 
 from agent.graph import ask, pipeline_version
@@ -24,6 +26,7 @@ from core.db import connection, pool_stats
 
 MAX_QUESTION_CHARS = 500
 MAX_BODY_BYTES = 16 * 1024
+WEB_DIST = Path(os.environ.get("WEB_DIST", Path(__file__).resolve().parent.parent / "web" / "dist"))
 
 log = logging.getLogger("api")
 
@@ -64,7 +67,31 @@ def _setup_cors(app: Flask) -> None:
         CORS(app, resources={r"/api/*": {"origins": origins}})
 
 
-def create_app(ask_fn=ask) -> Flask:
+def _setup_web(app: Flask, dist: Path) -> None:
+    """Serve the built UI from the same origin as the API.
+
+    One origin means no CORS, and a login cookie set by the load balancer
+    (Step 20) covers the page and its API calls alike. In development the
+    Vite dev server is used instead, so this only applies after `npm run build`.
+    """
+    if not (dist / "index.html").is_file():
+        return
+
+    @app.get("/")
+    def index():
+        resp = send_from_directory(dist, "index.html")
+        resp.headers["Cache-Control"] = "no-cache"   # always pick up a new build
+        return resp
+
+    @app.get("/assets/<path:name>")
+    def assets(name):
+        resp = send_from_directory(dist / "assets", name)
+        # Vite puts a content hash in every asset name, so they never change.
+        resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return resp
+
+
+def create_app(ask_fn=ask, web_dist: Path = WEB_DIST) -> Flask:
     """ask_fn is injectable so tests can run without a database or an API key."""
     logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"),
                         format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -72,6 +99,7 @@ def create_app(ask_fn=ask) -> Flask:
     app.config["MAX_CONTENT_LENGTH"] = MAX_BODY_BYTES
     app.json.sort_keys = False  # type: ignore[attr-defined]
     _setup_cors(app)
+    _setup_web(app, web_dist)
     version = pipeline_version()
 
     @app.before_request
@@ -82,6 +110,12 @@ def create_app(ask_fn=ask) -> Flask:
     @app.after_request
     def stamp(resp):
         resp.headers["X-Request-Id"] = g.get("request_id", "")
+        resp.headers["X-Content-Type-Options"] = "nosniff"
+        if resp.mimetype == "text/html":
+            # Everything the page loads comes from this origin (fonts are bundled).
+            resp.headers["Content-Security-Policy"] = (
+                "default-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'")
+            resp.headers["Referrer-Policy"] = "same-origin"
         if request.path != "/health":      # the load balancer polls this constantly
             ms = (time.monotonic() - g.get("started", time.monotonic())) * 1000
             log.info("request_id=%s %s %s -> %s %.0fms", g.get("request_id"),

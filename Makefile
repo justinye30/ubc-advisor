@@ -1,4 +1,4 @@
-.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli fetch-policy chunk embed search eval-retrieval rebuild-edges ask eval-routing eval-entities eval-composer eval-e2e smoke
+.PHONY: up down reset logs shell psql test lint fetch parse extract eval cli fetch-policy chunk embed search eval-retrieval rebuild-edges ask eval-routing eval-entities eval-composer eval-e2e smoke web-install web-dev web-build web-test
 
 up:            ## start the stack (foreground)
 	docker compose up --build
@@ -77,3 +77,16 @@ smoke:         ## hit the running API: make smoke Q="can I retake a course?"
 	curl -s localhost:8000/health/ready | python3 -m json.tool
 	curl -s -X POST localhost:8000/api/ask -H 'Content-Type: application/json' \
 	  -d '{"question": "$(Q)"}' | python3 -m json.tool
+
+# --- web UI (runs on your machine, not in the container; needs Node 22) ---
+web-install:   ## install front-end dependencies exactly as locked
+	cd web && npm ci
+
+web-dev:       ## Vite dev server on :5173, proxying /api to Flask on :8000
+	cd web && npm run dev
+
+web-build:     ## build web/dist; Flask then serves the UI at localhost:8000
+	cd web && npm run build
+
+web-test:      ## front-end unit tests
+	cd web && npm test
