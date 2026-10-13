@@ -781,3 +781,23 @@ Running log of choices made and why. Newest at the bottom.
 - **Service starts at 0 tasks**; make aws-start/stop own the count. Circuit
   breaker rolls back failed deployments. Immutable image tags = git commits.
 - **Cost:** ~$35-40/mo running, ~$4/mo stopped.
+
+## Step 20: HTTPS and login (2026-10-12)
+
+- **advisor.justinye.xyz**, a subdomain of the portfolio domain: free, and
+  HTTPS and Cognito both need a real domain. Two CNAMEs at the DNS host.
+- **ACM certificate, DNS-validated**; TLS 1.2/1.3 only; HTTP redirects to HTTPS.
+- **Authentication in the load balancer, not the app:** ALB +
+  authenticate-cognito (OAuth code flow, ALB as confidential client).
+  Flask never sees a password and has no login code.
+- **Cognito:** admin-created users only (no sign-up), email login, MFA
+  required (authenticator app), 8-hour sessions.
+- **Pages redirect to login; /api/* returns 401** instead, because a fetch
+  that follows a cross-origin redirect fails as an opaque network error.
+  The UI turns 401 into "your login has expired, reload".
+- **App port accepts only the load balancer.** Tasks keep a public IP for
+  outbound calls (no NAT), but can't be reached directly, so the login
+  can't be bypassed. my_ip now only matters for database restores.
+- **Placeholder guard:** terraform rejects my_ip in 203.0.113.0/24.
+- **Cost:** ~$60-65/mo running; the ALB can't be stopped, so the stack is
+  destroyed after the demo.
