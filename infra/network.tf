@@ -100,6 +100,12 @@ resource "aws_vpc_security_group_egress_rule" "alb_to_cognito" {
   to_port           = 443
 }
 
+resource "aws_security_group" "app" {
+  name        = "${var.name}-app"
+  description = "App tasks"
+  vpc_id      = aws_vpc.main.id
+}
+
 # The app: port 8000 from the load balancer only. The task still has a
 # public IP (for outbound calls, instead of a NAT gateway), but nothing can
 # connect to it directly, so the login can't be bypassed.
